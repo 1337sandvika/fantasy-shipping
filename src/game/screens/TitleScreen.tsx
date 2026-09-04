@@ -45,7 +45,7 @@ export function TitleScreen() {
   }, [user]);
 
   return (
-    <div className="relative flex min-h-dvh flex-col overflow-hidden bg-bg text-fg">
+    <div className="safe-pad relative flex min-h-dvh flex-col overflow-hidden bg-bg text-fg">
       <img src="/game/title-hero.jpg?v=3" alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
       <div className="absolute inset-0 bg-linear-to-t from-bg via-bg/70 to-bg/25" />
       <div className="relative z-10 flex justify-end px-4 pt-4 sm:px-10">

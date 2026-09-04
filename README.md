@@ -20,11 +20,24 @@ npm run preview
 
 Auth (email/password + optional Google/X) and the scoreboard need a database in production (`DATABASE_URL`). Local preview uses PGLite.
 
-## App Store notes
+## App Store (iOS)
 
-- Free web game today — no in-app purchases.
-- For iOS, digital unlocks must use Apple IAP; do not add Stripe for that.
-- Sign in with Apple is required if Google/X stay in the iOS binary. Email-only avoids that for v1.
+Capacitor wraps the **bundled** web game (not a remote-only WebView). See
+**[APP_STORE.md](./APP_STORE.md)** for the Mac / Xcode / Connect checklist.
+
+```bash
+npm install
+npm run cap:sync    # SPA build → www/ → ios/
+npm run cap:open    # Mac only: open Xcode
+```
+
+- Bundle ID: `com.fantasyshipping.app`
+- Display name: Fantasy Shipping
+- Career sim is offline (localStorage). Auth and leagues call
+  `https://palm-river-olive-field.grok.me` (`VITE_API_BASE_URL`).
+- Free game today — no in-app purchases. Digital unlocks on iOS must use Apple IAP.
+- Sign in with Apple is required only if Google/X stay in the iOS binary.
+  Email-only (already hidden on iOS WKWebView) avoids that for v1.
 
 ## Stack
 

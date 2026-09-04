@@ -74,7 +74,7 @@ export function ScoreboardScreen() {
   const t = useT();
 
   return (
-    <div className="flex min-h-dvh flex-col bg-bg text-fg">
+    <div className="safe-pad flex min-h-dvh flex-col bg-bg text-fg">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-8">
         <div>
           <p className="text-xs font-medium tracking-[0.28em] text-accent">{t("brand.results")}</p>

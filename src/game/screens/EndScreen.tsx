@@ -58,7 +58,7 @@ export function EndScreen() {
   }, [user, isPending, t]);
 
   return (
-    <div className="flex min-h-dvh flex-col bg-bg px-5 py-6 text-fg sm:py-10">
+    <div className="safe-pad flex min-h-dvh flex-col bg-bg px-5 py-6 text-fg sm:py-10">
       <div className="mb-6 flex justify-end">
         <AuthBar showTable={false} />
       </div>

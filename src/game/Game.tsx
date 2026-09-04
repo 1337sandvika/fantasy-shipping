@@ -72,7 +72,7 @@ export function Game() {
   if (phase === "end") return <EndScreen />;
 
   return (
-    <div className="relative flex h-dvh min-h-0 flex-col overflow-hidden bg-bg text-fg">
+    <div className="safe-pad relative flex h-dvh min-h-0 flex-col overflow-hidden bg-bg text-fg">
       <HUD />
       <FleetBar />
       <div className="hidden sm:block">
