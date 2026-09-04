@@ -75,15 +75,15 @@ export function Game() {
   if (phase === "end") return <EndScreen />;
 
   return (
-    <div className="safe-pad relative flex h-dvh min-h-0 flex-col overflow-hidden bg-bg text-fg">
+    <div className="safe-pad relative flex h-dvh min-h-0 w-full min-w-0 max-w-full flex-col overflow-x-hidden overflow-y-hidden bg-bg text-fg">
       <HUD />
       <FleetBar />
       <div className="hidden sm:block">
         <HoldCard variant="bar" />
       </div>
       <StatusBanners />
-      <div className="relative flex min-h-0 flex-1 flex-col sm:flex-row">
-        <div className="relative h-[36vh] shrink-0 sm:h-auto sm:min-h-0 sm:flex-1">
+      <div className="relative flex min-h-0 min-w-0 w-full flex-1 flex-col sm:flex-row">
+        <div className="relative h-[36vh] w-full min-w-0 shrink-0 sm:h-auto sm:min-h-0 sm:flex-1">
           <MapCanvas />
           <div className="absolute right-2 top-2 z-10 flex flex-col gap-1">
             <button
@@ -112,7 +112,7 @@ export function Game() {
             </div>
           ) : null}
         </div>
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col sm:w-[380px] sm:max-w-[42vw] sm:flex-none">
+        <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col sm:w-[380px] sm:max-w-[42vw] sm:flex-none">
           <PortPanel />
         </div>
       </div>

@@ -19,7 +19,22 @@ export async function bootNativeChrome(): Promise<void> {
       /* iOS ignores background color on some versions */
     }
     await SplashScreen.hide();
+    lockNativeViewport();
   } catch {
     /* web, or plugins not linked yet */
   }
+}
+
+/** Keep WKWebView at device width so a wide fleet bar cannot expand the page. */
+function lockNativeViewport(): void {
+  if (typeof document === "undefined") return;
+  const content =
+    "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover";
+  let meta = document.querySelector('meta[name="viewport"]');
+  if (!meta) {
+    meta = document.createElement("meta");
+    meta.setAttribute("name", "viewport");
+    document.head.appendChild(meta);
+  }
+  meta.setAttribute("content", content);
 }

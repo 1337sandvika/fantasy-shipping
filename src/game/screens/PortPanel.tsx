@@ -67,7 +67,7 @@ export function PortPanel() {
     scrollRef.current?.scrollTo({ top: 0 });
   }, [s.selectedPort]);
   return (
-    <div className="flex min-h-0 flex-1 flex-col border-t border-border bg-bg-elevated sm:border-l sm:border-t-0">
+    <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col border-t border-border bg-bg-elevated sm:border-l sm:border-t-0">
       <div className="border-b border-border px-3 py-2 sm:px-4 sm:py-3">
         {(() => {
           const ship = activeShip(s);
@@ -100,13 +100,13 @@ export function PortPanel() {
           );
         })()}
       </div>
-      <div className="flex gap-1 border-b border-border p-1">
+      <div className="flex min-w-0 w-full gap-1 overflow-x-auto overscroll-x-contain border-b border-border p-1">
         {tabs.map(([id, label]) => (
           <button
             key={id}
             type="button"
             onClick={() => setTab(id)}
-            className={cn("min-h-11 flex-1 rounded-md text-xs font-medium", s.tab === id ? "bg-surface text-fg" : "text-muted")}
+            className={cn("min-h-11 min-w-0 flex-1 rounded-md px-1 text-xs font-medium", s.tab === id ? "bg-surface text-fg" : "text-muted")}
           >
             {label}
           </button>
@@ -757,7 +757,7 @@ function YardTab() {
             return (
               <li key={h.id} className="overflow-hidden rounded-md border border-border bg-surface">
                 <img src={hullArt(h.id)} alt="" className="aspect-[16/7] w-full object-cover outline outline-1 -outline-offset-1 outline-white/10" />
-                <div className="flex items-start justify-between gap-2 px-3 py-3">
+                <div className="flex min-w-0 items-start justify-between gap-2 px-3 py-3">
                   <div>
                     <p className="font-medium">{h.name}</p>
                     <p className="text-xs text-muted">
@@ -787,7 +787,7 @@ function YardTab() {
             return (
               <li key={o.id} className={cn("overflow-hidden rounded-md border bg-surface", cheapId === o.id ? "border-accent/50" : "border-border")}>
                 <img src={hullArt(o.hullId)} alt="" className="aspect-[16/7] w-full object-cover outline outline-1 -outline-offset-1 outline-white/10" />
-                <div className="flex items-start justify-between gap-2 px-3 py-3">
+                <div className="flex min-w-0 items-start justify-between gap-2 px-3 py-3">
                   <div>
                     <p className="font-medium">M/V {o.name}</p>
                     <p className="text-xs text-muted">
@@ -892,7 +892,7 @@ function CharterTab() {
             return (
               <li key={o.id} className="overflow-hidden rounded-md border border-border bg-surface">
                 <img src={hullArt(o.hullId)} alt="" className="aspect-[16/7] w-full object-cover outline outline-1 -outline-offset-1 outline-white/10" />
-                <div className="flex items-start justify-between gap-2 px-3 py-3">
+                <div className="flex min-w-0 items-start justify-between gap-2 px-3 py-3">
                   <div>
                     <p className="font-medium">M/V {o.name}</p>
                     {o.owner ? <p className="text-[11px] text-subtle">{t("tc.owner", { n: o.owner })}</p> : null}

@@ -21,8 +21,11 @@ const config: CapacitorConfig = {
     hostname: "localhost",
   },
   ios: {
-    contentInset: "automatic",
+    // CSS .safe-pad owns the notch. `automatic` insets the WKWebView scroll
+    // view and makes the page feel wider than the phone (horizontal pan).
+    contentInset: "never",
     preferredContentMode: "mobile",
+    zoomEnabled: false,
     backgroundColor: "#071018",
     scheme: "Fantasy Shipping",
     limitsNavigationsToAppBoundDomains: false,

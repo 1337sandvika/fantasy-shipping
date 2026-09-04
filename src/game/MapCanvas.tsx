@@ -724,10 +724,10 @@ export function MapCanvas() {
   const mapHud = useGame((g) => g.ui.mapHud) !== false;
 
   return (
-    <div className="absolute inset-0 overscroll-none">
+    <div className="absolute inset-0 min-w-0 overflow-hidden overscroll-none">
       <canvas
         ref={ref}
-        className="h-full w-full cursor-grab touch-none active:cursor-grabbing"
+        className="block h-full w-full max-w-full cursor-grab touch-none active:cursor-grabbing"
         aria-label={here ? `${here.name}, ${countryName(here.country)}` : t("brand.game")}
       />
       {mapHud ? (

@@ -86,7 +86,7 @@ function Login() {
   }
 
   return (
-    <div className="safe-pad relative flex min-h-dvh flex-col overflow-hidden bg-bg text-fg">
+    <div className="safe-pad relative flex min-h-dvh w-full min-w-0 max-w-full flex-col overflow-x-hidden bg-bg text-fg">
       <img src="/game/title-hero.jpg?v=3" alt="" className="absolute inset-0 h-full w-full object-cover" />
       <div className="absolute inset-0 bg-linear-to-t from-bg via-bg/80 to-bg/40" />
       <div className="relative z-10 flex justify-end px-4 pt-4">
