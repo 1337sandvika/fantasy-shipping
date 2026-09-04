@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #071018;
+  --color-bg-elevated: #0c1a26;
+  --color-surface: #122232;
+  --color-sea: #0e2436;
+  --color-land: #3d4a42;
+  --color-fg: #ede6d9;
+  --color-muted: #8fa3b5;
+  --color-subtle: #6b7c8d;
+  --color-accent: #e85d04;
+  --color-accent-fg: #1a0c04;
+  --color-ok: #7d9b76;
+  --color-warn: #c4a574;
+  --color-danger: #c45c4a;
+  --color-border: rgb(237 230 217 / 0.14);
+  --color-chart: #c9c0ae;
+
+  --font-sans: "IBM Plex Sans", "Noto Sans SC", "Noto Sans Devanagari", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", "Times New Roman", serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 28px;
+
+  --shadow-panel: 0 18px 40px rgb(0 0 0 / 0.35);
+}
+
+html.font-cjk {
+  --font-display: "Noto Sans SC", "IBM Plex Sans", sans-serif;
+}
+
+html.font-deva {
+  --font-display: "Noto Sans Devanagari", "IBM Plex Sans", sans-serif;
+}
+
+html.font-el {
+  --font-display: "Noto Sans", "IBM Plex Sans", sans-serif;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html,
+  body,
+  #app {
+    min-height: 100%;
+    height: 100%;
+    background: var(--color-bg);
+    color: var(--color-fg);
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    line-height: 1.5;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+}

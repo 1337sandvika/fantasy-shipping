@@ -1,0 +1,27 @@
+import { en, type MsgKey } from "./en";
+
+export const zh: Record<MsgKey, string> = {
+  ...en,
+  "title.new": "新生涯",
+  "title.continue": "继续",
+  "auth.signIn": "登录",
+  "auth.signOut": "退出",
+  "auth.play": "开始",
+  "lang.label": "语言",
+  "login.title": "登录",
+  "login.create": "创建账户",
+  "hud.cash": "现金",
+  "tab.yard": "船厂",
+  "course.sail": "开航",
+  "act.load": "装货",
+  "yard.buyOne": "购买",
+  "lot.grey": "走私",
+  "board.title": "排行",
+  "board.league": "联赛",
+  "board.create": "创建",
+  "comp.kicker": "熟人赛季",
+  "comp.d60": "2 个月",
+  "comp.score.best": "最佳生涯",
+  "comp.season": "第 {n} 季",
+  "comp.continue": "继续 — 新赛季",
+};
