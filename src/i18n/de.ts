@@ -57,6 +57,8 @@ export const de: Record<MsgKey, string> = {
   "tempo.pause": "Pause",
   "map.follow": "Folgen",
   "map.europe": "Europa",
+  "map.zoomIn": "Vergrößern",
+  "map.zoomOut": "Verkleinern",
   "fleet.others": "Andere Schiffe im Hafen",
   "fleet.operate": "Steuern",
   "hold.empty": "Leere Decks",

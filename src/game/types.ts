@@ -149,6 +149,8 @@ export type UiState = {
   lastTempo: 1 | 2 | 4 | 8;
   follow: boolean;
   atlas: Atlas;
+  viewSeq: number;
+  mapHud: boolean;
 };
 
 export type SaveBlob = {

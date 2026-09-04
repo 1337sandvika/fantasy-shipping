@@ -17,8 +17,11 @@ import {
   co2PerNm,
   destSummary,
   fromHull,
+  fullTankRangeNm,
   hullValue,
   loanOffer,
+  lotFitsDeck,
+  lotInRange,
   lotPay,
   opexPerKceu,
   rangeNm,
@@ -27,6 +30,7 @@ import {
   suggestedDestId,
   usedHh,
   withUpgrade,
+  bunkerPlanFor,
 } from "../fleet";
 import { daysLeft, money, qty, qty1, qty3 } from "../format";
 import { inEurope } from "../geo";
@@ -137,11 +141,30 @@ function SailCard({
   setErr: (e: string | null) => void;
 }) {
   const t = useT();
+  const s = useGame((g) => g.state);
+  const setTab = useGame((g) => g.setTab);
   const going = destSummary(ship.hold).find((d) => d.dest === destId);
-  const nm = Math.round(seaRoute(ship.port, destId).nm);
+  const plan = bunkerPlanFor(s, destId);
+  const nm = Math.round(plan.nm || seaRoute(ship.port, destId).nm);
   const label = rec ? t("course.recommend") : picked ? t("course.picked") : t("course.suggested");
   const dest = getPort(destId);
   const share = etsShare(ship.port, destId);
+  const blocked = plan.hullTooShort || plan.noLng || plan.noCash;
+  const sailLabel =
+    plan.extraTons >= 1 && plan.canFill
+      ? t("course.sailFuel", { n: money(plan.cost) })
+      : `${t("course.sail")} → ${portName(destId)}`;
+
+  function go(full?: boolean) {
+    if (blocked) {
+      setErr(null);
+      setTab("bunkers");
+      return;
+    }
+    const e = sail(destId, full);
+    setErr(e ? maybeT(e) : null);
+  }
+
   return (
     <div className={cn("rounded-md border p-3", rec || picked ? "border-accent/40 bg-accent/10" : "border-border bg-surface")}>
       <p className="text-[10px] uppercase tracking-wider text-accent">{label}</p>
@@ -152,27 +175,33 @@ function SailCard({
       <p className="text-xs text-muted">
         {qty(nm)} nm
         {going ? ` · ${qty(going.ceu)} CEU · ${money(going.pay)}` : ""}
+        {` · ${t("bunker.range", { n: qty(Math.round(rangeNm(ship))) })}`}
       </p>
       <p className={cn("text-xs", etsTone(share))}>{t(etsLabelKey(ship.port, destId))}</p>
+      {plan.hullTooShort ? (
+        <p className="mt-2 text-xs text-danger">{t("course.tooFar", { port: portName(destId) })}</p>
+      ) : plan.noLng ? (
+        <p className="mt-2 text-xs text-warn">{t("bunker.lngNone")}</p>
+      ) : plan.noCash ? (
+        <p className="mt-2 text-xs text-danger">{t("bunker.need", { tons: qty(Math.ceil(plan.extraTons)), port: portName(destId), nm: qty(nm) })}</p>
+      ) : plan.extraTons >= 1 ? (
+        <p className="mt-1 text-xs text-muted">{t("bunker.need", { tons: qty(Math.ceil(plan.extraTons)), port: portName(destId), nm: qty(nm) })}</p>
+      ) : null}
       <div className="mt-2 flex gap-2">
-        <Button
-          className="flex-1"
-          onClick={() => {
-            const e = sail(destId);
-            setErr(e ? maybeT(e) : null);
-          }}
-        >
-          {t("course.sail")} → {portName(destId)}
-        </Button>
-        <Button
-          variant="secondary"
-          onClick={() => {
-            const e = sail(destId, true);
-            setErr(e ? maybeT(e) : null);
-          }}
-        >
-          {t("voyage.full")}
-        </Button>
+        {plan.hullTooShort ? null : blocked ? (
+          <Button className="flex-1" onClick={() => setTab("bunkers")}>
+            {t("course.bunker")}
+          </Button>
+        ) : (
+          <>
+            <Button className="flex-1" onClick={() => go()}>
+              {sailLabel}
+            </Button>
+            <Button variant="secondary" onClick={() => go(true)}>
+              {t("voyage.full")}
+            </Button>
+          </>
+        )}
       </div>
       {err ? <p className="mt-2 text-xs text-danger">{err}</p> : null}
     </div>
@@ -185,6 +214,7 @@ function DistressCard() {
   const repayLoanAct = useGame((g) => g.repayLoan);
   const sell = useGame((g) => g.sell);
   const setTab = useGame((g) => g.setTab);
+  const fileBankruptcy = useGame((g) => g.fileBankruptcy);
   const t = useT();
   const ship = activeShip(s);
   const tight = cashTight(s, ship);
@@ -240,6 +270,14 @@ function DistressCard() {
           </div>
         </div>
       ) : null}
+      {tight ? (
+        <div className="mt-3 border-t border-danger/20 pt-3">
+          <Button variant="secondary" className="w-full border-danger/40 text-danger" onClick={fileBankruptcy}>
+            {t("end.file")}
+          </Button>
+          <p className="mt-1 text-[11px] text-subtle">{t("end.fileHint")}</p>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -274,7 +312,7 @@ function CargoTab() {
       <DistressCard />
       <p className="text-xs italic text-subtle">{t(mood)}</p>
       {!pickedAway && ship && remainingCeu(ship) === ship.ceu && lots.length ? <p className="text-xs text-subtle">{t("hint.fill")}</p> : null}
-      {!pickedAway && ship && lots.length && lots.filter((l) => !canLoadLot(ship, l)).length > lots.length * 0.5 ? (
+      {!pickedAway && ship && lots.length && lots.filter((l) => !lotFitsDeck(ship, l)).length > lots.length * 0.5 ? (
         <p className="text-xs text-warn">{t("hint.tooSmall")}</p>
       ) : null}
       {atSea && leg ? (
@@ -364,13 +402,17 @@ function CargoTab() {
           <ul className="mt-2 space-y-2">
             {[...lots]
               .sort((a, b) => {
-                const score = (l: Lot) => (l.grey ? 3 : 0) + (l.kind === "hh" ? 2 : 0) + (l.contract ? 1 : 0) + l.rate / 2e3;
+                const loadable = (l: Lot) => (ship ? canLoadLot(ship, l) : false);
+                const score = (l: Lot) =>
+                  (loadable(l) ? 20 : 0) + (l.grey ? 3 : 0) + (l.kind === "hh" ? 2 : 0) + (l.contract ? 1 : 0) + l.rate / 2e3;
                 return score(b) - score(a);
               })
               .map((l) => {
                 const can = ship && canLoadLot(ship, l) && ship.port === s.selectedPort;
                 const hhBlock = Boolean(ship && remainingHh(ship) < (l.hh ?? 0));
                 const ceuBlock = Boolean(ship && remainingCeu(ship) < l.ceu);
+                const farBlock = Boolean(ship && !lotInRange(ship, l.dest));
+                const nm = Math.round(seaRoute(l.origin, l.dest).nm);
                 return (
                   <li
                     key={l.id}
@@ -387,7 +429,7 @@ function CargoTab() {
                         <p className="mt-0.5 font-mono text-sm tabular-nums text-accent">{money(lotPay(l))}</p>
                       </div>
                       <Button size="sm" disabled={!can} onClick={() => load(l.id)}>
-                        {hhBlock ? t("lot.noHh") : ceuBlock ? t("lot.noCeu") : t("act.load")}
+                        {hhBlock ? t("lot.noHh") : ceuBlock ? t("lot.noCeu") : farBlock ? t("lot.tooFar") : t("act.load")}
                       </Button>
                     </div>
                     <p className="mt-1 text-xs text-muted">
@@ -395,16 +437,20 @@ function CargoTab() {
                       <button type="button" className="text-accent hover:underline" onClick={() => selectPort(l.dest)}>
                         {portName(l.dest)}
                       </button>{" "}
-                      · {qty(Math.round(seaRoute(l.origin, l.dest).nm))} nm · {money(l.rate)}
+                      · {qty(nm)} nm · {money(l.rate)}
                       /CEU
                       {l.hh > 0 ? ` · ${t("lot.hh", { n: qty(l.hh) })}` : ""}
                       {l.contract ? ` · ${t("lot.contract")} · ${daysLeft(l.deadline, s.day)}` : ""}
                       {l.grey ? ` · ${t("lot.greyPay")}` : ""}
                     </p>
                     {l.note ? <p className="mt-1 text-[11px] italic text-subtle">{maybeT(`lot.note.${l.note}`)}</p> : null}
-                    {ship && !can && (hhBlock || ceuBlock) ? (
+                    {ship && !can && (hhBlock || ceuBlock || farBlock) ? (
                       <p className="mt-1 text-[11px] text-danger">
-                        {hhBlock ? t("lot.needHh", { need: qty(l.hh), have: qty(ship.hhCap) }) : t("lot.needCeu", { need: qty(l.ceu), have: qty(ship.ceu) })}
+                        {farBlock
+                          ? t("lot.needRange", { need: qty(nm), have: qty(Math.round(fullTankRangeNm(ship))) })
+                          : hhBlock
+                            ? t("lot.needHh", { need: qty(l.hh), have: qty(ship.hhCap) })
+                            : t("lot.needCeu", { need: qty(l.ceu), have: qty(ship.ceu) })}
                       </p>
                     ) : null}
                   </li>

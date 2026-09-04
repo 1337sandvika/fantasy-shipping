@@ -33,7 +33,7 @@ export function FleetBar() {
           >
             <p className="truncate text-xs font-medium">
               M/V {sh.name}
-              {sh.charter === "in" ? " · TC" : sh.charter === "out" ? " · out" : ""}
+              {sh.charter === "in" ? ` · ${t("fleet.tcIn")}` : sh.charter === "out" ? ` · ${t("fleet.tcOut")}` : ""}
             </p>
             <p className="truncate text-xs text-muted">
               {sh.charter === "out" ? t("fleet.tcOut") : loc}

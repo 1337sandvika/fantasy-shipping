@@ -3,6 +3,7 @@ import { BRANDS, ODD, LOT_FLAVOUR, SHIP_NAMES, TC_DESKS } from "./data/cargo";
 import { CUSTOMS_HUBS, PORTS, etsShare, getPort, portName } from "./data/ports";
 import { HULLS, UPGRADES, hullById } from "./data/ships";
 import { isWinter, monthKey } from "./format";
+import { inEurope } from "./geo";
 import {
   activeLeg,
   activeShip,
@@ -11,65 +12,59 @@ import {
   canLoadLot,
   canTakeLoan,
   etsFactor,
+  fleetReachNm,
+  fullTankRangeNm,
   hullValue,
+  isStranded,
   loanOffer,
   remainingCeu,
   remainingHh,
   shipLeg,
 } from "./fleet";
 import { seaRoute } from "./route";
-import type { GameState, MarketOffer, TcOffer } from "./types";
+import { t, type MsgKey } from "@/i18n";
 
 let seq = 1;
 const uid = (p: string) => `${p}-${seq++}-${Math.random().toString(36).slice(2, 6)}`;
 
-function log(s: GameState, text: string) {
-  s.log = [{ day: s.day, text }, ...s.log].slice(0, 80);
+function log(s: GameState, key: MsgKey, vars?: Record<string, string | number>) {
+  s.log = [{ day: s.day, text: t(key, vars) }, ...s.log].slice(0, 80);
 }
 
 function newsFor(day, seed) {
   const r = rng(((seed >>> 0) || 1) + day * 19 + 3);
   const mood = careerMood(seed);
-  const moodLine = [
-    "Odd-parcel week. Circus cages, golf carts, a mayor's yacht. The lions took a plane.",
-    "High & Heavy is paying. If your weather deck is a rumour, so is the freight.",
-    "Grey week. Envelopes, tracksuits, and clipboards with opinions.",
-    "Ocean contracts. Feeders will cry. Grown-up hulls will invoice.",
-    "Feeder week. Small lots, short seas, the accountants almost smile.",
-    "Recall week. Viking Volt and friends would like their batteries back. Probably declared.",
-  ][mood];
+  const moodKey = (`news.mood.${mood}` as MsgKey);
   const pool = [
-    moodLine,
-    "Nordia swears this week's cars are not last week's cars. The stickers say otherwise.",
-    "Fjordia wants Göteborg–Zeebrugge yesterday. They will pay like they mean it.",
-    "Stellara in Vigo is shipping the colour nobody ordered. Freight is honest.",
-    "Ice warning, Gulf of Finland. Polar bears are not a valid ice class.",
-    "LNG in Zeebrugge, Flushing, Le Havre, Barcelona and Tanger Med. The rest is diesel and regret.",
-    "EU ETS: the monthly hug. Old MGO tonnage gets the invoice with teeth.",
-    "Tokai Autoport loads hybrids. The batteries are declared. Probably.",
-    "High & Heavy out of Emden pays. Your weather deck has opinions.",
-    "Second-hand RoRo is cheap. So is the steel behind the paint.",
-    "Customs in Zeebrugge bought new clipboards. They are excited to use them.",
-    "An OEM contract with a short deadline pays double. Late is a personality.",
-    "Grey brokers on VHF. Fat freight. Harbour police have radios too.",
-    "Baltimore and Jacksonville laugh at feeder CEU. Buy a grown-up hull.",
-    "Yokohama–Long Beach H&H is paying. Ramps earn their keep.",
-    "Singapore: envelopes if you like heat. The coastguard likes heat too.",
-    "Santos harvest kit wants a specialist. Cheap tonnage cannot lift a combine.",
-    "A mayor somewhere wants his yacht on a car deck. Do not ask why.",
-    "Viking Volt issued a recall and a freight tender in the same hour.",
-    "The TC desk is hungry. Short-term hire is cheaper than a bad purchase.",
-    "A circus left three cages in Nimbus's yard. The lions took a plane. The generator did not.",
-    "Helios Kart: a golf resort went under. The carts still have the scorecards.",
-    "Dockers in Flushing have discovered coffee that lasts six hours.",
-    "A pilot in Le Havre would like his coffee 'supported'. Cash only.",
-    "Rumour: a yellow sports car on deck 4 has its own agent.",
-    "The cook's chili has been classified as a weather event in two ports.",
-    "A flamingo was lashed between two vans. Nobody will claim it.",
-    "Herring Haul wants fish-and-chip vans moved before Friday. The smell is freight.",
-    "Clipboard Partners are offering cheap TC. You trade. They own the rust.",
-  ];
-  return [moodLine, ...shuffle(pool.filter((x) => x !== moodLine), r)].slice(0, 6);
+    "news.0",
+    "news.1",
+    "news.2",
+    "news.3",
+    "news.4",
+    "news.5",
+    "news.6",
+    "news.7",
+    "news.8",
+    "news.9",
+    "news.10",
+    "news.11",
+    "news.12",
+    "news.13",
+    "news.14",
+    "news.15",
+    "news.16",
+    "news.17",
+    "news.18",
+    "news.19",
+    "news.20",
+    "news.21",
+    "news.22",
+    "news.23",
+    "news.24",
+    "news.25",
+  ] as const;
+  const moodLine = t(moodKey);
+  return [moodLine, ...shuffle(pool.map((k) => t(k)).filter((x) => x !== moodLine), r)].slice(0, 6);
 }
 export function careerMood(seed) {
   return ((seed >>> 0) || 1) % 6;
@@ -128,43 +123,52 @@ function refillLotsUnsafe(s) {
   const oddP = mood === 0 ? 0.44 : s.day === 0 ? 0.3 : 0.2;
   const greyP = mood === 2 ? 0.4 : 0.16;
   const hhCut = mood === 1 ? 0.42 : 0.2;
+  const reach = fleetReachNm(s);
+  const capCeu = Math.max(HULLS[0].ceu, ...s.fleet.filter((sh) => sh.charter !== "out").map((sh) => sh.ceu));
+  const capHh = Math.max(HULLS[0].hhCap, ...s.fleet.filter((sh) => sh.charter !== "out").map((sh) => sh.hhCap));
   for (const p of shuffle(PORTS, r)) {
     const n = 6 + Math.floor(r() * 8);
-    const others = PORTS.filter((x) => x.id !== p.id).map((d) => ({
-      id: d.id,
-      nm: seaRoute(p.id, d.id).nm,
-    }));
-    others.sort((a, b) => a.nm - b.nm);
-    const near = others.slice(0, Math.min(8, others.length));
-    const mid = others.slice(8, Math.min(18, others.length));
-    const far = others.slice(18);
+    const others = PORTS.filter((x) => x.id !== p.id)
+      .map((d) => ({
+        id: d.id,
+        nm: seaRoute(p.id, d.id).nm,
+      }))
+      .sort((a, b) => a.nm - b.nm);
+    const inRange = others.filter((d) => d.nm * 1.08 <= reach + 30);
+    const pool = inRange.length ? inRange : others.slice(0, 6);
+    const near = pool.slice(0, Math.min(8, pool.length));
+    const mid = pool.slice(8, Math.min(16, pool.length));
+    const far = pool.slice(16);
     const prev = s.lots[p.id] ?? [];
     const keepN = s.day === 0 ? 0 : Math.min(2, Math.floor(r() * 3));
-    const lots = keepN ? shuffle(prev, r).slice(0, keepN) : [];
+    const lots = keepN
+      ? shuffle(
+          prev.filter((l) => others.find((d) => d.id === l.dest && d.nm * 1.08 <= reach + 80)),
+          r,
+        ).slice(0, keepN)
+      : [];
     for (let i = lots.length; i < n; i++) {
       const roll = r();
       const destPool =
-        mood === 3
-          ? roll < 0.55 && far.length
-            ? far
-            : others
-          : roll < 0.2
-            ? others
-            : roll < 0.46
-              ? near
-              : roll < 0.7 && mid.length
-                ? mid
-                : far.length
-                  ? far
-                  : others;
-      const dest = pick(destPool, r).id;
+        roll < 0.72
+          ? near
+          : roll < 0.93 && mid.length
+            ? mid
+            : far.length
+              ? far
+              : pool;
+      const dest = pick(destPool.length ? destPool : pool, r).id;
       const nm = others.find((d) => d.id === dest)?.nm ?? seaRoute(p.id, dest).nm;
       const ocean = nm > 1700;
       if (r() < oddP) {
         const odd = pick(ODD, r);
         const span = (pair) => pair[0] + Math.floor(r() * Math.max(1, pair[1] - pair[0]));
-        const hh = span(odd.hh);
-        const ceu = Math.max(odd.ceu[0], span(odd.ceu) + hh * (odd.kind === "hh" ? 4 : 0));
+        let hh = span(odd.hh);
+        let ceu = Math.max(odd.ceu[0], span(odd.ceu) + hh * (odd.kind === "hh" ? 4 : 0));
+        if (r() < 0.72) {
+          hh = Math.min(hh, capHh);
+          ceu = Math.min(ceu, capCeu);
+        }
         const contract = r() < 0.22;
         const grey = r() < greyP;
         lots.push({
@@ -223,6 +227,10 @@ function refillLotsUnsafe(s) {
               ? 1400 + Math.floor(r() * 1600)
               : 120 + Math.floor(r() * 900);
       }
+      if (r() < 0.7) {
+        ceu = Math.min(ceu, Math.max(120, Math.floor(capCeu * (0.28 + r() * 0.7))));
+        hh = Math.min(hh, capHh);
+      }
       const recall = mood === 5 && kind === "cars" && r() < 0.38;
       const rate = freightRate(nm, kind, contract, grey, r());
       lots.push({
@@ -242,6 +250,50 @@ function refillLotsUnsafe(s) {
     }
     s.lots[p.id] = shuffle(lots, r);
   }
+  ensureWork(s, r);
+}
+function ensureWork(s, r) {
+  const ship = activeShip(s);
+  if (!ship || ship.atSea || ship.charter === "out") return;
+  const port = ship.port;
+  const reach = fullTankRangeNm(ship);
+  const dests = PORTS.filter((p) => p.id !== port)
+    .map((p) => ({ id: p.id, nm: seaRoute(port, p.id).nm }))
+    .filter((d) => d.nm * 1.08 <= reach + 20)
+    .sort((a, b) => a.nm - b.nm);
+  if (!dests.length) return;
+  let lots = s.lots[port] ?? [];
+  const roomCeu = remainingCeu(ship);
+  const roomHh = remainingHh(ship);
+  if (roomCeu < 80) return;
+  const nearFit = lots.filter((l) => canLoadLot(ship, l) && (dests.find((d) => d.id === l.dest)?.nm ?? 9e9) < 900).length;
+  let fit = nearFit;
+  let n = 0;
+  while (fit < 4 && n < 6) {
+    n += 1;
+    const d = dests[(n - 1) % Math.min(8, dests.length)];
+    const ceu = Math.max(80, Math.min(roomCeu, 160 + Math.floor(r() * Math.min(1100, roomCeu))));
+    const hh = roomHh >= 8 && r() < 0.22 ? Math.min(roomHh, 4 + Math.floor(r() * 12)) : 0;
+    const kind = hh > 0 ? "hh" : r() < 0.3 ? "vans" : "cars";
+    lots = [
+      {
+        id: uid("lot"),
+        origin: port,
+        dest: d.id,
+        brand: pick(BRANDS, r),
+        kind,
+        ceu,
+        hh,
+        rate: freightRate(d.nm, kind, false, false, r()),
+        contract: false,
+        deadline: s.day + 10 + Math.floor(r() * 12),
+        grey: false,
+      },
+      ...lots,
+    ];
+    fit += 1;
+  }
+  s.lots[port] = lots;
 }
 function rSalt(s) {
   return ((s.seed >>> 0) ^ (s.day * 7919) ^ ((s.cash | 0) >>> 3)) / 4294967296;
@@ -355,7 +407,7 @@ export function freshState(company, director): GameState {
   const boss = String(director ?? "").trim() || "Director";
   const seed = (hashStr(line + "|" + boss) ^ (Date.now() & 0xffffffff) ^ ((Math.random() * 0xffffffff) >>> 0)) >>> 0;
   const r0 = rng(seed);
-  const yards = PORTS.filter((p) => p.yard).map((p) => p.id);
+  const yards = PORTS.filter((p) => p.yard && inEurope(p.lon, p.lat)).map((p) => p.id);
   const selectedPort = yards[Math.floor(r0() * yards.length)] || "zeebrugge";
   const s: GameState = {
     phase: "port",
@@ -395,15 +447,12 @@ export function freshState(company, director): GameState {
   refillLots(s);
   refreshMarket(s, true);
   refreshTc(s, true);
-  log(
-    s,
-    `Fantasy Shipping opens ${line} under ${boss} with a berth in ${portName(selectedPort)}. Buy a RoRo — or hire one on TC if you like living lean.`,
-  );
+  log(s, "log.open", { line, boss, port: portName(selectedPort) });
   return s;
 }
 function maybeEnd(s) {
   const done = s.milestones ?? [];
-  if (!done.includes("broke") && s.cash - (s.debt ?? 0) < -4e5 && s.fleet.length === 0) return endCareer(s, "broke");
+  if (!done.includes("broke") && isStranded(s)) return endCareer(s, "broke");
   if (!done.includes("green") && s.cash >= 12e6 && fleetGreen(s)) return endCareer(s, "green");
   if (!done.includes("wealth") && s.cash + fleetBook(s) >= 18e6) return endCareer(s, "wealth");
   if (!done.includes("retired") && s.day >= 2190) return endCareer(s, "retired");
@@ -421,11 +470,15 @@ function fleetGreen(s) {
   );
 }
 export function endCareer(s, kind) {
-  return {
+  const next = {
     ...s,
     phase: "end",
     endKind: kind,
   };
+  if (kind === "broke") {
+    log(next, "log.broke");
+  }
+  return next;
 }
 export function resumeCareer(s) {
   const kind = s.endKind ?? "retired";
@@ -445,9 +498,9 @@ export function resumeCareer(s) {
   if (kind === "broke") {
     next.cash = Math.max(next.cash, 2_400_000);
     next.debt = (next.debt ?? 0) + 2_400_000;
-    log(next, "HQ posts an emergency line. Ugly interest. You still have a berth.");
+    log(next, "log.bail");
   } else {
-    log(next, "Checkpoint posted. The line keeps trading.");
+    log(next, "log.checkpoint");
   }
   return next;
 }
@@ -488,10 +541,13 @@ export function buyHull(s, hullId) {
     activeId: ship.id,
     tab: "cargo",
   };
-  log(
-    next,
-    `Bought M/V ${ship.name} (${ship.year}). ${ship.fuel === "lng" ? "LNG dual-fuel." : "MGO only — higher ETS."} H&H deck ${ship.hhCap}. ${ship.opex} €/day in opex.`,
-  );
+  log(next, ship.fuel === "lng" ? "log.buyLng" : "log.buyMgo", {
+    name: ship.name,
+    year: ship.year,
+    hh: ship.hhCap,
+    opex: ship.opex,
+  });
+  refillLots(next);
   return next;
 }
 export function buyOffer(s, offerId) {
@@ -511,10 +567,14 @@ export function buyOffer(s, offerId) {
     tab: "cargo",
     market: s.market.filter((o) => o.id !== offerId),
   };
-  log(
-    next,
-    `Bought M/V ${ship.name} off the market (${ship.year}, ${Math.round(ship.condition)}% condition) for ${offer.price} euro. H&H ${ship.hhCap}. ${ship.fuel === "lng" ? "LNG." : "MGO — watch ETS."}`,
-  );
+  log(next, ship.fuel === "lng" ? "log.buyOfferLng" : "log.buyOfferMgo", {
+    name: ship.name,
+    year: ship.year,
+    cond: Math.round(ship.condition),
+    price: offer.price,
+    hh: ship.hhCap,
+  });
+  refillLots(next);
   return next;
 }
 export function sellShip(s, shipId) {
@@ -534,9 +594,8 @@ export function sellShip(s, shipId) {
   };
   log(
     next,
-    dumped
-      ? `Sold M/V ${ship.name} for ${price} euro with ${dumped} lots still on deck. The buyer kept the cars. You kept the embarrassment.`
-      : `Sold M/V ${ship.name} for ${price} euro${ship.condition < 55 ? " — the rust was part of the charm, said the buyer, quietly." : "."}`,
+    dumped ? "log.sellDump" : ship.condition < 55 ? "log.sellRust" : "log.sell",
+    { name: ship.name, price, n: dumped },
   );
   return maybeEnd(repayKeep(next, 80_000));
 }
@@ -570,10 +629,8 @@ export function takeTcIn(s, offerId) {
     tc: (s.tc ?? []).filter((o) => o.id !== offerId),
     tab: "cargo",
   };
-  log(
-    next,
-    `Took M/V ${ship.name} on time charter — ${offer.rate} €/day for ${offer.days} days. Deposit ${deposit} euro held. You trade, they own the rust.`,
-  );
+  log(next, "log.tcIn", { name: ship.name, rate: offer.rate, days: offer.days, deposit });
+  refillLots(next);
   return next;
 }
 export function charterOut(s, shipId, days = 30) {
@@ -596,10 +653,7 @@ export function charterOut(s, shipId, days = 30) {
     fleet: s.fleet.map((sh) => (sh.id === ship.id ? { ...sh, charter: "out" } : sh)),
     charters: [...(s.charters ?? []), ch],
   };
-  log(
-    next,
-    `M/V ${ship.name} fixed out on TC at ${rate} €/day for ${n} days. Someone else can argue with the dockers.`,
-  );
+  log(next, "log.tcOut", { name: ship.name, rate, days: n });
   return next;
 }
 function tickCharters(s, days) {
@@ -631,14 +685,14 @@ function redeliver(s, charterId) {
           : sh,
       ),
     };
-    log(next, `Off hire: M/V ${c.name} is back alongside. Hire was ${c.rate} €/day.`);
+    log(next, "log.offHire", { name: c.name, rate: c.rate });
     return next;
   }
   if (!ship) {
     return { ...s, charters: s.charters.filter((x) => x.id !== c.id) };
   }
   if (ship.atSea || ship.hold.length) {
-    log(s, `${ship.name} is off-hire — empty the decks at the next berth.`);
+    log(s, "log.offHireEmpty", { name: ship.name });
     return {
       ...s,
       charters: s.charters.map((x) => (x.id === c.id ? { ...x, untilDay: s.day + 1 } : x)),
@@ -654,7 +708,7 @@ function redeliver(s, charterId) {
     activeId: s.activeId === ship.id ? (fleet[0]?.id ?? null) : s.activeId,
     tab: fleet.length ? s.tab : "charter",
   };
-  log(next, `Redelivered M/V ${ship.name}. Deposit back: ${refund} euro. The owner counted the scratches.`);
+  log(next, "log.redeliver", { name: ship.name, refund });
   return next;
 }
 export function setActive(s, id) {
@@ -700,10 +754,17 @@ export function loadLot(s, lotId) {
         : sh,
     ),
   };
-  log(
-    next,
-    `${ship.name} loaded ${lot.ceu} CEU ${lot.kind === "hh" ? "High & Heavy " : ""}${lot.brand} for ${portName(lot.dest)}.${lot.contract ? ` Contract, deadline day ${lot.deadline}.` : ""}${lot.grey ? " Undeclared — coastguard and customs can take you." : ""}${lot.note ? " Odd parcel." : ""}`,
-  );
+  log(next, "log.load", {
+    name: ship.name,
+    ceu: lot.ceu,
+    brand: lot.brand,
+    dest: portName(lot.dest),
+    extra:
+      (lot.kind === "hh" ? t("log.loadHh") : "") +
+      (lot.contract ? t("log.loadContract", { day: lot.deadline }) : "") +
+      (lot.grey ? t("log.loadGrey") : "") +
+      (lot.note ? t("log.loadOdd") : ""),
+  });
   return next;
 }
 export function dischargeHere(s) {
@@ -733,7 +794,7 @@ export function dischargeHere(s) {
       sh.id === ship.id ? { ...sh, hold: sh.hold.filter((l) => l.dest !== ship.port) } : sh,
     ),
   };
-  log(next, `Discharged ${ceu} CEU in ${portName(ship.port)}. Freight ${pay} euro.`);
+  log(next, "log.discharge", { ceu, port: portName(ship.port), pay });
   next = skimDebt(next, pay);
   return maybeEnd(next);
 }
@@ -751,7 +812,7 @@ export function bunker(s, tons) {
     cash: s.cash - cost,
     fleet: s.fleet.map((sh) => (sh.id === ship.id ? { ...sh, bunkers: sh.bunkers + take } : sh)),
   };
-  log(next, `Bunkered ${Math.round(take)} t ${ship.fuel.toUpperCase()} in ${portName(ship.port)} for ${cost} euro.`);
+  log(next, "log.bunker", { tons: Math.round(take), fuel: ship.fuel.toUpperCase(), port: portName(ship.port), cost });
   return next;
 }
 export function repair(s) {
@@ -773,7 +834,7 @@ export function repair(s) {
         : sh,
     ),
   };
-  log(next, `Repair ${need}% on ${ship.name} in ${portName(ship.port)}.`);
+  log(next, "log.repair", { need, name: ship.name, port: portName(ship.port) });
   return next;
 }
 export function drydock(s) {
@@ -797,10 +858,7 @@ export function drydock(s) {
         : sh,
     ),
   };
-  log(
-    next,
-    `Drydock and classing of M/V ${ship.name} in ${portName(ship.port)}. ${days} days, ${cost} euro.`,
-  );
+  log(next, "log.drydock", { name: ship.name, port: portName(ship.port), days, cost });
   refreshMarket(next);
   refreshTc(next);
   next = tickOpex(next, days);
@@ -829,7 +887,7 @@ export function fitUpgrade(s, id) {
         : sh,
     ),
   };
-  log(next, `Fitted ${id} on M/V ${ship.name}.`);
+  log(next, "log.upgrade", { name: ship.name, upg: t((`upg.${id}`) as MsgKey) });
   return next;
 }
 export function waitDay(s) {
@@ -839,16 +897,17 @@ export function waitDay(s) {
     ...s,
     day: s.day + 1,
   };
-  if (ship) log(next, `Lay alongside in ${portName(ship.port)}. The coffee is worse than the bunkers.`);
+  if (ship) log(next, "log.wait", { port: portName(ship.port) });
   refillLots(next);
   refreshMarket(next);
   refreshTc(next);
   next = tickOpex(next, 1);
   next = tickCharters(next, 1);
   next = advanceLegs(next, 1, true);
-  if (next.phase === "event" || next.phase === "end") return maybeEts(next);
-  if (ship && !ship.atSea && ship.charter !== "out" && Math.random() < 0.32) return pickQuayEvent(maybeEts(next));
-  return maybeEts(next);
+  next = maybeEnd(maybeEts(next));
+  if (next.phase === "event" || next.phase === "end") return next;
+  if (ship && !ship.atSea && ship.charter !== "out" && Math.random() < 0.32) return pickQuayEvent(next);
+  return next;
 }
 function tickOpex(s, days) {
   const opex = s.fleet.filter((sh) => sh.charter !== "in").reduce((a, sh) => a + sh.opex, 0) * days;
@@ -873,7 +932,7 @@ function skimDebt(s, inflow) {
   const cut = Math.min(debt, Math.round(inflow * 0.35));
   if (cut <= 0) return s;
   const next = { ...s, cash: s.cash - cut, debt: debt - cut };
-  log(next, `Loan desk took ${cut} euro of the freight. ${next.debt} still outstanding.`);
+  log(next, "log.skim", { cut, debt: next.debt });
   return next;
 }
 function repayKeep(s, keep) {
@@ -883,7 +942,7 @@ function repayKeep(s, keep) {
   if (spare <= 0) return s;
   const pay = Math.min(debt, spare);
   const next = { ...s, cash: s.cash - pay, debt: debt - pay };
-  log(next, pay >= debt ? `Cleared the bunker loan.` : `Paid ${pay} euro on the bunker loan.`);
+  log(next, pay >= debt ? "log.loanClear" : "log.loanPay", { pay });
   return next;
 }
 export function takeLoan(s) {
@@ -895,10 +954,7 @@ export function takeLoan(s) {
     debt: (s.debt ?? 0) + offer.due,
     reputation: Math.max(12, (s.reputation ?? 55) - 4),
   };
-  log(
-    next,
-    `Took a bunker loan: ${offer.principal} euro on the account, ${offer.due} euro to repay. Expensive paper — 32 percent and 0.15 percent a day.`,
-  );
+  log(next, "log.loan", { get: offer.principal, owe: offer.due });
   return next;
 }
 export function repayLoan(s) {
@@ -910,10 +966,7 @@ export function repayLoan(s) {
     cash: s.cash - pay,
     debt: debt - pay,
   };
-  log(
-    next,
-    pay >= debt ? `Cleared the bunker loan. Paid ${pay} euro.` : `Paid ${pay} euro on the bunker loan. ${debt - pay} still outstanding.`,
-  );
+  log(next, pay >= debt ? "log.loanClearPay" : "log.loanPayLeft", { pay, left: debt - pay });
   return next;
 }
 function maybeEts(s) {
@@ -969,7 +1022,7 @@ export function payEts(s) {
       etsAcc: 0,
     })),
   };
-  log(next, `EU ETS monthly quota settled: ${s.ets.t} t × ${s.ets.price} € = ${bill} euro.`);
+  log(next, "log.ets", { tons: s.ets.t, price: s.ets.price, bill });
   return maybeEnd(next);
 }
 export function sailCheck(s, dest) {
@@ -983,7 +1036,7 @@ export function sailCheck(s, dest) {
   if (s.day - ship.lastDrydock > 400) return "sail.classing";
   const { nm } = seaRoute(ship.port, dest);
   const need = burnPerNm(ship) * nm * 1.08;
-  if (ship.bunkers < need) return "sail.bunkers";
+  if (ship.bunkers + 0.3 < need) return "sail.bunkers";
   return null;
 }
 export function setCourse(s, dest, fullRevs = false) {
@@ -1018,10 +1071,7 @@ export function setCourse(s, dest, fullRevs = false) {
         : sh,
     ),
   };
-  log(
-    next,
-    `${ship.name} sailed ${portName(ship.port)} for ${portName(dest)}. ${Math.round(nm)} nm by sea, eta ${days.toFixed(1)} days.`,
-  );
+  log(next, "log.sail", { name: ship.name, from: portName(ship.port), to: portName(dest), nm: Math.round(nm), eta: days.toFixed(1) });
   return next;
 }
 function advanceLegs(s, dtDays, events) {
@@ -1109,10 +1159,7 @@ function arriveShip(s, shipId) {
     ),
     news: newsFor(s.day, s.seed),
   };
-  log(
-    next,
-    `${ship.name} arrived ${portName(v.to)}. ${Math.round(v.nm)} nm in ${v.days.toFixed(1)} days.`,
-  );
+  log(next, "log.arrive", { name: ship.name, port: portName(v.to), nm: Math.round(v.nm), days: v.days.toFixed(1) });
   refillLots(next);
   refreshMarket(next);
   refreshTc(next);
@@ -1366,39 +1413,34 @@ export function resolveEvent(s, choice) {
   if (ev.id === "storm") {
     if (choice === "slow") {
       bump(0.7);
-      log(next, "Reduced speed in the gale. Cargo held. A hat did not.");
+      log(next, "log.ev.stormSlow");
     } else {
       dmg(9);
-      log(next, "Held off-speed. The sea took the decks, and a bit of dignity.");
+      log(next, "log.ev.stormHold");
     }
   } else if (ev.id === "engine") {
     if (choice === "limp") {
       bump(1.2);
-      log(next, "Limped in on one engine. The chief wants a raise. Denied.");
+      log(next, "log.ev.engineLimp");
     } else {
       next = {
         ...next,
         cash: next.cash - 18e3,
       };
-      log(next, "Jury repair at sea. −€18,000 and a wrench that will never be the same.");
+      log(next, "log.ev.engineJury");
     }
   } else if (ev.id === "ice") {
     if (choice === "wait") {
       bump(1.5);
-      log(next, "Waited for an ice lead. The polar bear did not charge extra.");
+      log(next, "log.ev.iceWait");
     } else {
       dmg(ship?.ice ? 4 : 18);
-      log(next, "Forced through the ice. The bow has notes.");
+      log(next, "log.ev.iceForce");
     }
   } else if (ev.id === "lash" || ev.id === "hhshift") {
     if (choice === "secure") {
       bump(ev.id === "hhshift" ? 0.6 : 0.4);
-      log(
-        next,
-        ev.id === "hhshift"
-          ? "Re-lashed High & Heavy. Time lost, transformer still aboard."
-          : "Re-lashed cargo. Time lost, damage avoided.",
-      );
+      log(next, ev.id === "hhshift" ? "log.ev.hhSecure" : "log.ev.lashSecure");
     } else if (
       !(ship?.upgrades ?? []).includes("lashing") &&
       Math.random() < (ev.id === "hhshift" ? 0.55 : 0.4)
@@ -1408,21 +1450,16 @@ export function resolveEvent(s, choice) {
         ...next,
         cash: next.cash - (ev.id === "hhshift" ? 42e3 : 0),
       };
-      log(
-        next,
-        ev.id === "hhshift"
-          ? "H&H walked. Claim on the transformer. The mill is not amused."
-          : "Sailed on with a loose lashing. Cars now slightly more used.",
-      );
-    } else log(next, "Sailed on. Held this time. Luck is not a lashing.");
+      log(next, ev.id === "hhshift" ? "log.ev.hhWalk" : "log.ev.lashLoose");
+    } else log(next, "log.ev.lashOk");
   } else if (ev.id === "fog") {
     if (choice === "wait") {
       bump(0.6);
-      log(next, "Lay to in fog. Drank tea. Missed a tide.");
+      log(next, "log.ev.fogWait");
     } else if (Math.random() < 0.2) {
       dmg(14);
-      log(next, "Near miss in fog. Damage to bow and cargo. The other skipper waved. Rude.");
-    } else log(next, "Pressed on radar. Got through the fog. Nobody to tell.");
+      log(next, "log.ev.fogHit");
+    } else log(next, "log.ev.fogOk");
   } else if (ev.id === "fuelcontam") {
     if (choice === "purify") {
       bump(0.5);
@@ -1438,15 +1475,15 @@ export function resolveEvent(s, choice) {
               : sh,
           ),
         };
-      log(next, "Purified bunkers. Lost time, a few tons, and the cook's tasting notes.");
+      log(next, "log.ev.fuelPurify");
     } else if (Math.random() < 0.35) {
       dmg(10);
       next = {
         ...next,
         cash: next.cash - 24e3,
       };
-      log(next, "Injectors took the water. Jury work and a yard bill later.");
-    } else log(next, "Burned through. The engine coughed, then settled. Nobody clap.");
+      log(next, "log.ev.fuelJury");
+    } else log(next, "log.ev.fuelBurn");
   } else if (ev.id === "radio") {
     if (choice === "take" && ship) {
       const wantHh = remainingHh(ship) >= 28 && Math.random() < 0.55;
@@ -1477,16 +1514,16 @@ export function resolveEvent(s, choice) {
               : sh,
           ),
         };
-        log(next, "Took the undeclared lot. Fat freight — and a hotter AIS picture.");
+        log(next, "log.ev.greyTake");
       } else {
         next = {
           ...next,
           cash: next.cash + 110e3 + Math.floor(Math.random() * 50e3),
           heat: next.heat + 10,
         };
-        log(next, "Decks could not take it. Took a cash envelope under the table instead.");
+        log(next, "log.ev.greyCash");
       }
-    } else log(next, "Declined the grey broker. Decks stay paper-clean. The tracksuit looked disappointed.");
+    } else log(next, "log.ev.greyNo");
   } else if (ev.id === "hhdeal") {
     if (choice === "take" && ship) {
       const extra = {
@@ -1511,18 +1548,15 @@ export function resolveEvent(s, choice) {
             sh.id === ship.id ? { ...sh, hold: [...sh.hold, extra] } : sh,
           ),
         };
-        log(next, `OEM High & Heavy on the book. ${extra.hh} units, ${extra.rate} €/CEU.`);
+        log(next, "log.ev.hhYes", { hh: extra.hh, rate: extra.rate });
       } else {
-        log(next, "H&H deck too small for the transformer. Fit a weather deck — or pass the charter.");
+        log(next, "log.ev.hhSmall");
       }
-    } else log(next, "Passed on the High & Heavy charter. The mill will remember, faintly.");
+    } else log(next, "log.ev.hhNo");
   } else if (ev.id === "coastguard" || ev.id === "patrol") {
     if (choice === "heave") {
       const fine = seizeGrey();
-      log(
-        next,
-        fine ? `They took the grey cargo. Fine ${fine} euro. Clipboards: 1, skipper: 0.` : "Inspection clean. They let us go. Smile next time.",
-      );
+      log(next, fine ? "log.ev.heaveFine" : "log.ev.heaveClean", { fine: fine || 0 });
     } else if (choice === "bribe") {
       const cost = 38e3 + next.heat * 350;
       next = {
@@ -1530,7 +1564,7 @@ export function resolveEvent(s, choice) {
         cash: next.cash - cost,
       };
       if (Math.random() < 0.38) {
-        log(next, `The envelope was not enough. Fine on top.`);
+        log(next, "log.ev.bribeFail");
         next = arrest(next);
         return next;
       }
@@ -1538,20 +1572,20 @@ export function resolveEvent(s, choice) {
         ...next,
         heat: Math.max(0, next.heat - 6),
       };
-      log(next, `Envelope of ${cost} euro. The launch peeled off.`);
+      log(next, "log.ev.bribeOk", { cost });
     } else if (Math.random() < 0.42) {
       const fine = seizeGrey();
       bump(10);
-      log(next, `The cutter caught us. Escorted in. Fine ${fine} euro.`);
+      log(next, "log.ev.runCaught", { fine });
       next = arrest(next);
       return next;
-    } else log(next, "Increased speed. The cutter fell off the radar. For now.");
+    } else log(next, "log.ev.runOk");
   } else if (ev.id === "customs") {
     if (choice === "open") {
       if (ship?.hold.some((l) => l.grey)) {
         const fine = seizeGrey();
-        log(next, `Customs took undeclared cargo. Fine ${fine} euro. The sports car will be missed.`);
-      } else log(next, "Customs: manifests in order. They looked almost sad.");
+        log(next, "log.ev.customsSeize", { fine });
+      } else log(next, "log.ev.customsOk");
     } else {
       const cost = 42e3 + next.heat * 400;
       next = {
@@ -1559,7 +1593,7 @@ export function resolveEvent(s, choice) {
         cash: next.cash - cost,
       };
       if (Math.random() < (ship?.hold.some((l) => l.grey) ? 0.48 : 0.28)) {
-        log(next, "The envelope was refused. Harbour police take the ship.");
+        log(next, "log.ev.customsRefuse");
         next = arrest(next);
         return next;
       }
@@ -1567,33 +1601,33 @@ export function resolveEvent(s, choice) {
         ...next,
         heat: Math.max(0, next.heat - 8),
       };
-      log(next, `Quiet envelope of ${cost} euro. Customs looked the other way. Professionally.`);
+      log(next, "log.ev.customsBribe", { cost });
     }
   } else if (ev.id === "pilot") {
     if (choice === "pay") {
       next = { ...next, cash: next.cash - 4500 };
-      log(next, "Coffee money for the pilot. The ladder was climbed with dignity, of a sort.");
+      log(next, "log.ev.pilotPay");
     } else {
       bump(0.4);
-      log(next, "Waited for a sober pilot. The tide did not.");
+      log(next, "log.ev.pilotWait");
     }
   } else if (ev.id === "union") {
     if (choice === "pay") {
       next = { ...next, cash: next.cash - 12000 };
-      log(next, "Overtime for the dockers. The coffee break ended, allegedly.");
+      log(next, "log.ev.unionPay");
     } else {
       bump(1);
-      log(next, "Dockers finished their coffee. Tomorrow. Maybe.");
+      log(next, "log.ev.unionWait");
     }
   } else if (ev.id === "cook") {
     if (choice === "vent") {
       bump(0.3);
-      log(next, "Ventilated the galley. The chili was a war crime, but the ship is intact.");
+      log(next, "log.ev.cookVent");
     } else if (Math.random() < 0.22) {
       dmg(8);
       next = { ...next, cash: next.cash - 9000 };
-      log(next, "The fire alarm was not crying wolf. Galley and paintwork.");
-    } else log(next, "The chili stood down. The crew did not.");
+      log(next, "log.ev.cookFire");
+    } else log(next, "log.ev.cookOk");
   }
   return maybeEnd(next);
 }
@@ -1622,8 +1656,8 @@ function arrest(s) {
     ),
   };
   if (ship) {
-    log(next, `Arrested in ${portName(ship.port)}. Fine ${fine} euro, cargo seized.`);
-    log(next, `${ship.name} held alongside ten days after arrest. The coffee is worse here.`);
+    log(next, "log.arrest", { port: portName(ship.port), fine });
+    log(next, "log.arrestHold", { name: ship.name });
   }
   next = {
     ...next,

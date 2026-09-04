@@ -1,11 +1,12 @@
 import { useEffect, useRef } from "react";
+import { Minus, Plus } from "lucide-react";
 import { PORTS } from "./data/ports";
 import { EDGES, NODES } from "./data/seaways";
 import { EUROPE, LAND, VIEW_NM, frameBox, project } from "./geo";
 import { hopProgress, pointOnPath, seaRoute } from "./route";
 import { activeShip, destSummary, shipLeg, shipWorldPos } from "./fleet";
 import { useGame } from "./store";
-import { countryName, t } from "@/i18n";
+import { countryName, t, useT } from "@/i18n";
 import { qty } from "./format";
 import type { Ship, Voyage } from "./types";
 
@@ -41,6 +42,33 @@ function getLandPath(w: number, h: number): Path2D {
 }
 
 type Cam = { x: number; y: number; z: number; ready: boolean };
+
+const Z_MIN = 1;
+const Z_MAX = 14;
+const DRAG_PX = 8;
+
+function clampCam(cam: Cam, w: number, h: number) {
+  cam.z = Math.min(Z_MAX, Math.max(Z_MIN, cam.z));
+  const padX = (w * 0.42) / cam.z;
+  const padY = (h * 0.42) / cam.z;
+  cam.x = Math.min(w + padX, Math.max(-padX, cam.x));
+  cam.y = Math.min(h + padY, Math.max(-padY, cam.y));
+}
+
+function zoomToward(cam: Cam, sx: number, sy: number, w: number, h: number, factor: number) {
+  const z0 = cam.z;
+  const z1 = Math.min(Z_MAX, Math.max(Z_MIN, z0 * factor));
+  if (z1 === z0) {
+    clampCam(cam, w, h);
+    return;
+  }
+  const wx = (sx - w / 2) / z0 + cam.x;
+  const wy = (sy - h / 2) / z0 + cam.y;
+  cam.z = z1;
+  cam.x = wx - (sx - w / 2) / z1;
+  cam.y = wy - (sy - h / 2) / z1;
+  clampCam(cam, w, h);
+}
 
 function vp(lon: number, lat: number, w: number, h: number, cam: Cam) {
   const p = project(lon, lat, w, h);
@@ -176,6 +204,19 @@ export function MapCanvas() {
   const hopCam = useRef<{ x: number; y: number; z: number; key: string } | null>(null);
   const lastId = useRef<string | null>(null);
   const lastView = useRef("");
+  const lastSeq = useRef(0);
+  const freeCam = useRef(false);
+  const size = useRef({ w: 0, h: 0 });
+  const drag = useRef<{
+    id: number;
+    x: number;
+    y: number;
+    moved: boolean;
+  } | null>(null);
+  const pointers = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinch = useRef<{ dist: number; mx: number; my: number } | null>(null);
+  const skipClick = useRef(false);
+  const i18n = useT();
 
   useEffect(() => {
     const c = ref.current;
@@ -187,6 +228,7 @@ export function MapCanvas() {
       const dpr = Math.min(2, window.devicePixelRatio || 1);
       const w = parent.clientWidth;
       const h = parent.clientHeight;
+      size.current = { w, h };
       if (w < 8 || h < 8) {
         raf = requestAnimationFrame(draw);
         return;
@@ -220,23 +262,32 @@ export function MapCanvas() {
       const activeLeg = ship ? shipLeg(st, ship.id) : null;
       const hop = activeLeg ? hopProgress(activeLeg.path, activeLeg.travelled, activeLeg.nm) : null;
       let want = frameBox(EUROPE, w, h);
-      if (ui.follow && ship && world) {
-        const focus = project(world.lon, world.lat, w, h);
-        if (ship.atSea && hop) {
-          const A = project(hop.from.lon, hop.from.lat, w, h);
-          const B = project(hop.to.lon, hop.to.lat, w, h);
-          const framed = frameHop(A, B, w, h);
-          const key = `${st.activeId}-${hop.i}`;
-          if (hop.moving) {
-            if (!hopCam.current || hopCam.current.key !== key) hopCam.current = { ...framed, key };
-            want = { x: hopCam.current.x, y: hopCam.current.y, z: hopCam.current.z };
+      if (ui.follow) {
+        if (ship && world) {
+          const focus = project(world.lon, world.lat, w, h);
+          if (ship.atSea && hop) {
+            const A = project(hop.from.lon, hop.from.lat, w, h);
+            const B = project(hop.to.lon, hop.to.lat, w, h);
+            const framed = frameHop(A, B, w, h);
+            const key = `${st.activeId}-${hop.i}`;
+            if (hop.moving) {
+              if (!hopCam.current || hopCam.current.key !== key) hopCam.current = { ...framed, key };
+              want = { x: hopCam.current.x, y: hopCam.current.y, z: hopCam.current.z };
+            } else {
+              hopCam.current = null;
+              want = framed;
+            }
           } else {
             hopCam.current = null;
-            want = framed;
+            want = { x: focus.x, y: focus.y, z: 7.1 };
           }
         } else {
           hopCam.current = null;
-          want = { x: focus.x, y: focus.y, z: 7.1 };
+          const p = PORTS.find((x) => x.id === selected);
+          if (p) {
+            const focus = project(p.lon, p.lat, w, h);
+            want = { x: focus.x, y: focus.y, z: 6.8 };
+          }
         }
       } else {
         hopCam.current = null;
@@ -247,7 +298,14 @@ export function MapCanvas() {
       const viewKey = ui.follow ? "follow" : ui.atlas;
       const viewChanged = lastView.current !== viewKey;
       lastView.current = viewKey;
-      if (!cam.current.ready || viewChanged) {
+      const seq = ui.viewSeq ?? 0;
+      const seqChanged = seq !== lastSeq.current;
+      lastSeq.current = seq;
+      if (ui.follow) freeCam.current = false;
+      if (seqChanged) freeCam.current = false;
+      if (freeCam.current && !ui.follow) {
+        clampCam(cam.current, w, h);
+      } else if (!cam.current.ready || viewChanged || seqChanged) {
         cam.current = { ...want, ready: true };
       } else {
         const moving = Boolean(ship?.atSea && hop?.moving && ui.follow);
@@ -260,6 +318,11 @@ export function MapCanvas() {
       }
       const camNow = cam.current;
       const lw = 1 / camNow.z;
+      (window as unknown as { __mapCam?: { x: number; y: number; z: number } }).__mapCam = {
+        x: camNow.x,
+        y: camNow.y,
+        z: camNow.z,
+      };
 
       ctx.save();
       ctx.translate(w / 2, h / 2);
@@ -492,14 +555,22 @@ export function MapCanvas() {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  function onClick(e: React.MouseEvent<HTMLCanvasElement>) {
+  function takeFreeCam() {
+    freeCam.current = true;
+    const g = useGame.getState();
+    if (g.ui.follow) g.setFollow(false);
+  }
+
+  function localPoint(e: { clientX: number; clientY: number }) {
+    const c = ref.current;
+    if (!c) return { x: 0, y: 0, w: 0, h: 0 };
+    const r = c.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top, w: r.width, h: r.height };
+  }
+
+  function hitAt(x: number, y: number) {
     const phase = useGame.getState().state.phase;
     if (phase === "event" || phase === "title" || phase === "end") return;
-    const c = ref.current;
-    if (!c) return;
-    const r = c.getBoundingClientRect();
-    const x = e.clientX - r.left;
-    const y = e.clientY - r.top;
     let bestShip: { id: string; d: number } | null = null;
     for (const m of drawn.current) {
       const d = (m.x - x) ** 2 + (m.y - y) ** 2;
@@ -509,9 +580,9 @@ export function MapCanvas() {
       switchShip(bestShip.id);
       return;
     }
-    const w = r.width;
-    const h = r.height;
+    const { w, h } = size.current;
     const camNow = cam.current;
+    if (w < 8 || h < 8 || !camNow.z) return;
     const wx = (x - w / 2) / camNow.z + camNow.x;
     const wy = (y - h / 2) / camNow.z + camNow.y;
     let best: { id: string; d: number } | null = null;
@@ -527,16 +598,158 @@ export function MapCanvas() {
     }
   }
 
+  useEffect(() => {
+    const c = ref.current;
+    if (!c) return;
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const { x, y, w, h } = localPoint(e);
+      if (w < 8 || h < 8) return;
+      takeFreeCam();
+      const pinchZoom = e.ctrlKey || e.metaKey;
+      const trackPadPan = !pinchZoom && Math.abs(e.deltaX) > 0.5;
+      if (pinchZoom) {
+        zoomToward(cam.current, x, y, w, h, Math.exp(-e.deltaY * 0.01));
+      } else if (trackPadPan) {
+        cam.current.x += e.deltaX / cam.current.z;
+        cam.current.y += e.deltaY / cam.current.z;
+        clampCam(cam.current, w, h);
+      } else {
+        const factor = Math.exp(-e.deltaY * 0.0022);
+        zoomToward(cam.current, x, y, w, h, factor);
+      }
+    };
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.button !== 0 && e.pointerType === "mouse") return;
+      const { x, y } = localPoint(e);
+      pointers.current.set(e.pointerId, { x, y });
+      c.setPointerCapture(e.pointerId);
+      if (pointers.current.size === 2) {
+        const pts = [...pointers.current.values()];
+        const a = pts[0]!;
+        const b = pts[1]!;
+        pinch.current = {
+          dist: Math.hypot(b.x - a.x, b.y - a.y),
+          mx: (a.x + b.x) / 2,
+          my: (a.y + b.y) / 2,
+        };
+        drag.current = null;
+        skipClick.current = true;
+      } else {
+        drag.current = { id: e.pointerId, x, y, moved: false };
+        skipClick.current = false;
+      }
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!pointers.current.has(e.pointerId)) return;
+      const { x, y, w, h } = localPoint(e);
+      pointers.current.set(e.pointerId, { x, y });
+      if (pointers.current.size >= 2 && pinch.current) {
+        const pts = [...pointers.current.values()];
+        const a = pts[0]!;
+        const b = pts[1]!;
+        const dist = Math.hypot(b.x - a.x, b.y - a.y);
+        const mx = (a.x + b.x) / 2;
+        const my = (a.y + b.y) / 2;
+        if (pinch.current.dist > 8 && dist > 8) {
+          takeFreeCam();
+          zoomToward(cam.current, mx, my, w, h, dist / pinch.current.dist);
+          cam.current.x -= (mx - pinch.current.mx) / cam.current.z;
+          cam.current.y -= (my - pinch.current.my) / cam.current.z;
+          clampCam(cam.current, w, h);
+        }
+        pinch.current = { dist, mx, my };
+        skipClick.current = true;
+        return;
+      }
+      const d = drag.current;
+      if (!d || d.id !== e.pointerId) return;
+      const dx = x - d.x;
+      const dy = y - d.y;
+      if (!d.moved && dx * dx + dy * dy < DRAG_PX * DRAG_PX) return;
+      d.moved = true;
+      skipClick.current = true;
+      takeFreeCam();
+      cam.current.x -= dx / cam.current.z;
+      cam.current.y -= dy / cam.current.z;
+      clampCam(cam.current, w, h);
+      d.x = x;
+      d.y = y;
+      c.style.cursor = "grabbing";
+    };
+
+    const endPointer = (e: PointerEvent) => {
+      const d = drag.current;
+      const wasTap = d && d.id === e.pointerId && !d.moved && !skipClick.current;
+      pointers.current.delete(e.pointerId);
+      if (pointers.current.size < 2) pinch.current = null;
+      if (d && d.id === e.pointerId) drag.current = null;
+      c.style.cursor = "grab";
+      try {
+        c.releasePointerCapture(e.pointerId);
+      } catch {
+        /* already released */
+      }
+      if (wasTap) {
+        const { x, y } = localPoint(e);
+        hitAt(x, y);
+      }
+    };
+
+    c.addEventListener("wheel", onWheel, { passive: false });
+    c.addEventListener("pointerdown", onPointerDown);
+    c.addEventListener("pointermove", onPointerMove);
+    c.addEventListener("pointerup", endPointer);
+    c.addEventListener("pointercancel", endPointer);
+    return () => {
+      c.removeEventListener("wheel", onWheel);
+      c.removeEventListener("pointerdown", onPointerDown);
+      c.removeEventListener("pointermove", onPointerMove);
+      c.removeEventListener("pointerup", endPointer);
+      c.removeEventListener("pointercancel", endPointer);
+    };
+  }, [selectPort, setTab, switchShip]);
+
+  function bumpZoom(dir: 1 | -1) {
+    const { w, h } = size.current;
+    if (w < 8 || h < 8) return;
+    takeFreeCam();
+    zoomToward(cam.current, w / 2, h / 2, w, h, dir > 0 ? 1.28 : 1 / 1.28);
+  }
+
   const here = PORTS.find((p) => p.id === selected);
+  const mapHud = useGame((g) => g.ui.mapHud) !== false;
 
   return (
-    <div className="absolute inset-0">
+    <div className="absolute inset-0 overscroll-none">
       <canvas
         ref={ref}
-        className="h-full w-full touch-none"
-        onClick={onClick}
+        className="h-full w-full cursor-grab touch-none active:cursor-grabbing"
         aria-label={here ? `${here.name}, ${countryName(here.country)}` : t("brand.game")}
       />
+      {mapHud ? (
+        <div className="absolute right-2 top-28 z-10 flex flex-col gap-1">
+          <button
+            type="button"
+            onClick={() => bumpZoom(1)}
+            className="flex size-11 items-center justify-center rounded-md border border-border bg-bg-elevated/90 text-fg"
+            aria-label={i18n("map.zoomIn")}
+          >
+            <Plus className="size-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => bumpZoom(-1)}
+            className="flex size-11 items-center justify-center rounded-md border border-border bg-bg-elevated/90 text-fg"
+            aria-label={i18n("map.zoomOut")}
+          >
+            <Minus className="size-4" />
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

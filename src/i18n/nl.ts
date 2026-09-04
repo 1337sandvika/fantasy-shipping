@@ -28,6 +28,8 @@ export const nl: Record<MsgKey, string> = {
   "tempo.pause": "Pauze",
   "map.follow": "Volg",
   "map.europe": "Europa",
+  "map.zoomIn": "Inzoomen",
+  "map.zoomOut": "Uitzoomen",
   "fleet.others": "Andere schepen in haven",
   "fleet.operate": "Bestuur",
   "hold.empty": "Lege dekken",
