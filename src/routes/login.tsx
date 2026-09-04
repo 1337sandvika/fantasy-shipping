@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { GROK_PROVIDERS, authClient, authEnabled, signIn } from "@/lib/auth/client";
+import { GROK_PROVIDERS, authClient, authEnabled, captureNativeSessionToken, signIn } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { useT } from "@/i18n";
 import { LanguageSwitch } from "@/i18n/LanguageSwitch";
@@ -66,15 +66,17 @@ function Login() {
     setBusy(true);
     try {
       if (mode === "up") {
-        const { error: err } = await authClient.signUp.email({
+        const { data, error: err } = await authClient.signUp.email({
           email: email.trim(),
           password,
           name: name.trim() || email.trim().split("@")[0] || t("auth.captain"),
         });
         if (err) throw new Error(err.message ?? t("login.signupFail"));
+        captureNativeSessionToken(data);
       } else {
-        const { error: err } = await authClient.signIn.email({ email: email.trim(), password });
+        const { data, error: err } = await authClient.signIn.email({ email: email.trim(), password });
         if (err) throw new Error(err.message ?? t("login.badCreds"));
+        captureNativeSessionToken(data);
       }
       window.location.href = dest;
     } catch (err) {
@@ -84,7 +86,7 @@ function Login() {
   }
 
   return (
-    <div className="relative flex min-h-dvh flex-col overflow-hidden bg-bg text-fg">
+    <div className="safe-pad relative flex min-h-dvh w-full min-w-0 max-w-full flex-col overflow-x-hidden bg-bg text-fg">
       <img src="/game/title-hero.jpg?v=3" alt="" className="absolute inset-0 h-full w-full object-cover" />
       <div className="absolute inset-0 bg-linear-to-t from-bg via-bg/80 to-bg/40" />
       <div className="relative z-10 flex justify-end px-4 pt-4">

@@ -11,7 +11,7 @@ export function FleetBar() {
   const t = useT();
   if (!s.fleet.length) return null;
   return (
-    <div className="flex gap-2 overflow-x-auto border-b border-border bg-bg-elevated px-2 py-1.5 sm:py-2">
+    <div className="flex min-w-0 w-full max-w-full gap-2 overflow-x-auto overscroll-x-contain border-b border-border bg-bg-elevated px-2 py-1.5 sm:py-2">
       {s.fleet.map((sh) => {
         const on = sh.id === s.activeId;
         const leg = shipLeg(s, sh.id);
@@ -77,7 +77,7 @@ export function TempoBar() {
     { n: 8, label: "8×" },
   ];
   return (
-    <div className="flex max-w-full flex-col items-start gap-1 sm:flex-row sm:flex-wrap sm:items-center">
+    <div className="flex min-w-0 w-full max-w-full flex-col items-start gap-1 sm:flex-row sm:flex-wrap sm:items-center">
       <div className="flex items-center gap-0.5 rounded-md border border-border bg-bg-elevated/90 p-0.5 sm:gap-1 sm:p-1">
         {options.map((o) => (
           <button

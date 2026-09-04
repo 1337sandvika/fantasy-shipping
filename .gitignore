@@ -5,6 +5,7 @@ node_modules/
 .tanstack/
 .grok/
 dist/
+www/
 artifacts/
 screenshots/
 tmp/
@@ -17,5 +18,4 @@ tmp/
 *.log
 .vscode/
 .idea/
-ios/
 android/

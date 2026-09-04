@@ -1,4 +1,5 @@
 import { getRequest } from "@tanstack/react-start/server";
+import { isCapacitorOrigin } from "@/lib/capacitor-origins";
 
 /**
  * Fetch-Metadata sibling isolation — **server-only** (`.server.ts` suffix).
@@ -14,10 +15,11 @@ import { getRequest } from "@tanstack/react-start/server";
  * (fetch/XHR/form-POST) request to this app's server functions and ride this
  * app's session cookie.
  *
- * We allow only: same-origin requests (this app's own client), non-browser
- * requests (SSR / server-to-server, which send no `Sec-Fetch-Site`), and
- * top-level GET navigations (how the OAuth callback and normal page loads
- * arrive). Every cross-site / same-site *scripted* request is rejected.
+ * We allow only: same-origin requests (this app's own client), the first-party
+ * Capacitor binary (`capacitor://localhost`, see `capacitor-origins.ts`),
+ * non-browser requests (SSR / server-to-server, which send no `Sec-Fetch-Site`),
+ * and top-level GET navigations (OAuth callback / address-bar loads). Sibling
+ * `*.grok.me` scripted requests stay rejected.
  * Together with `__Host-` cookies and Better Auth's `trustedOrigins`, this
  * closes the sibling-tenant attack surface. Enforced at the `authMiddleware`
  * chokepoint (see `middleware.ts`).
@@ -35,6 +37,9 @@ export function assertSameSiteRequest(): void {
   const request = getRequest();
   if (!request) return; // no request context (e.g. build) — nothing to guard
   const h = request.headers;
+  // First-party Capacitor binary (bundled assets at capacitor://localhost)
+  // calling this hosted API. Still rejects sibling *.grok.me scripted calls.
+  if (isCapacitorOrigin(h.get("origin"))) return;
   const site = h.get("sec-fetch-site");
   // Non-browser client (no header), the app's own origin, or a direct
   // (address-bar/bookmark) load are all fine.

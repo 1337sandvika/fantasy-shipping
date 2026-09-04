@@ -1,8 +1,13 @@
+import { useEffect } from "react";
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { I18nBoot } from "@/i18n";
+import { installNativeApiFetch } from "@/lib/native-fetch";
+import { bootNativeChrome } from "@/lib/native-chrome";
 import appCss from "../styles.css?url";
+
+installNativeApiFetch();
 
 const APP_NAME = "Fantasy Shipping";
 
@@ -10,7 +15,11 @@ export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
+      {
+        name: "viewport",
+        content:
+          "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover",
+      },
       { title: APP_NAME },
       { name: "theme-color", content: "#071018" },
       {
@@ -30,7 +39,15 @@ export const Route = createRootRoute({
       },
     ],
   }),
-  component: () => (
+  component: RootDocument,
+});
+
+function RootDocument() {
+  useEffect(() => {
+    void bootNativeChrome();
+  }, []);
+
+  return (
     <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
@@ -44,5 +61,5 @@ export const Route = createRootRoute({
         <Scripts />
       </body>
     </html>
-  ),
-});
+  );
+}

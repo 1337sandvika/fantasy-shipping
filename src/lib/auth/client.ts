@@ -1,7 +1,10 @@
 import { genericOAuthClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { runPreSignInSignOut, runSignOut } from "../../../scripts/sign-out-plan.mjs";
+import { isNativeClientOrigin, readApiBaseUrl } from "../api-base";
 import { GROK_PROVIDERS } from "./providers";
+
+const apiBaseUrl = readApiBaseUrl();
 
 /**
  * Better Auth client for this React SPA (browser-side).
@@ -18,6 +21,7 @@ import { GROK_PROVIDERS } from "./providers";
  * the visitor stays signed in.
  */
 export const authClient = createAuthClient({
+  ...(apiBaseUrl ? { baseURL: apiBaseUrl } : {}),
   plugins: [genericOAuthClient()],
   fetchOptions: {
     onRequest(ctx) {
@@ -46,12 +50,20 @@ export { GROK_PROVIDERS };
 // to server functions, via `@/lib/auth/middleware`). Empty everywhere except the
 // preview after a popup sign-in, so the cookie path is untouched elsewhere.
 const BEARER_KEY = "grok-auth.bearer-token";
+const NATIVE_BEARER_KEY = "fantasy-shipping.native-bearer";
 
-/** The stored preview bearer token, or null. */
+function onNativeClient(): boolean {
+  return typeof window !== "undefined" && isNativeClientOrigin(window.location.origin);
+}
+
+/** The stored preview / native bearer token, or null. */
 export function getBearerToken(): string | null {
   if (typeof window === "undefined") return null;
   try {
-    return window.sessionStorage.getItem(BEARER_KEY);
+    const preview = window.sessionStorage.getItem(BEARER_KEY);
+    if (preview) return preview;
+    if (onNativeClient()) return window.localStorage.getItem(NATIVE_BEARER_KEY);
+    return null;
   } catch {
     return null;
   }
@@ -62,9 +74,32 @@ function setBearerToken(token: string | null): void {
   try {
     if (token) window.sessionStorage.setItem(BEARER_KEY, token);
     else window.sessionStorage.removeItem(BEARER_KEY);
+    if (onNativeClient()) {
+      if (token) window.localStorage.setItem(NATIVE_BEARER_KEY, token);
+      else window.localStorage.removeItem(NATIVE_BEARER_KEY);
+    }
   } catch {
     /* storage unavailable — ignore */
   }
+}
+
+/** Persist a Better Auth session token for the Capacitor binary (no cookies). */
+export function captureNativeSessionToken(payload: unknown): void {
+  if (!onNativeClient()) return;
+  const token = extractSessionToken(payload);
+  if (token) setBearerToken(token);
+}
+
+function extractSessionToken(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+  const rec = payload as Record<string, unknown>;
+  if (typeof rec.token === "string" && rec.token) return rec.token;
+  const session = rec.session;
+  if (session && typeof session === "object") {
+    const tok = (session as Record<string, unknown>).token;
+    if (typeof tok === "string" && tok) return tok;
+  }
+  return null;
 }
 
 /**

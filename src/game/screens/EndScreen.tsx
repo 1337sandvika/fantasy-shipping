@@ -75,7 +75,7 @@ export function EndScreen() {
   }, [user, isPending, t]);
 
   return (
-    <div className="flex min-h-dvh flex-col bg-bg text-fg">
+    <div className="safe-pad flex min-h-dvh w-full min-w-0 max-w-full flex-col overflow-x-hidden bg-bg text-fg">
       {hard ? (
         <div className="relative isolate overflow-hidden border-b border-danger/40">
           <img

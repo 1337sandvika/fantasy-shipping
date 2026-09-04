@@ -17,7 +17,7 @@ export function AuthBar({ extra, showTable = true }: { extra?: ReactNode; showTa
   const t = useT();
 
   return (
-    <div className="flex flex-wrap items-center justify-end gap-2">
+    <div className="flex max-w-full min-w-0 flex-wrap items-center justify-end gap-2">
       <LanguageSwitch compact />
       {extra}
       {showTable ? (
