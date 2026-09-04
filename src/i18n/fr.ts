@@ -38,6 +38,8 @@ export const fr: Record<MsgKey, string> = {
   "tempo.pause": "Pause",
   "map.follow": "Suivre",
   "map.europe": "Europe",
+  "map.zoomIn": "Zoom avant",
+  "map.zoomOut": "Zoom arrière",
   "fleet.others": "Autres navires au quai",
   "fleet.operate": "Piloter",
   "hold.empty": "Ponts vides",

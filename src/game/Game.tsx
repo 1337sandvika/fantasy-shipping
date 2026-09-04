@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Settings } from "lucide-react";
+import { ChevronsDown, ChevronsUp, Settings } from "lucide-react";
 import { useT } from "@/i18n";
 import { MapCanvas } from "./MapCanvas";
 import { persist } from "./save";
@@ -22,12 +22,15 @@ export function Game() {
   const phase = useGame((s) => s.state.phase);
   const settings = useGame((s) => s.ui.settings);
   const muted = useGame((s) => s.ui.muted);
+  const mapHud = useGame((s) => s.ui.mapHud) !== false;
   const setSettings = useGame((s) => s.setSettings);
+  const setMapHud = useGame((s) => s.setMapHud);
   const tick = useGame((s) => s.tick);
   const t = useT();
 
   useEffect(() => {
     hydrateSaveFlag();
+    (window as unknown as { __game?: typeof useGame }).__game = useGame;
   }, []);
 
   useEffect(() => {
@@ -82,19 +85,32 @@ export function Game() {
       <div className="relative flex min-h-0 flex-1 flex-col sm:flex-row">
         <div className="relative h-[36vh] shrink-0 sm:h-auto sm:min-h-0 sm:flex-1">
           <MapCanvas />
-          <div className="absolute right-2 top-2 z-10">
+          <div className="absolute right-2 top-2 z-10 flex flex-col gap-1">
             <button
               type="button"
-              onClick={() => setSettings(true)}
+              onClick={() => setMapHud(!mapHud)}
               className="flex size-11 items-center justify-center rounded-md border border-border bg-bg-elevated/90 text-fg"
-              aria-label={t("set.title")}
+              aria-label={t(mapHud ? "map.hideHud" : "map.showHud")}
+              title={t(mapHud ? "map.hideHud" : "map.showHud")}
             >
-              <Settings className="size-4" />
+              {mapHud ? <ChevronsDown className="size-4" /> : <ChevronsUp className="size-4" />}
             </button>
+            {mapHud ? (
+              <button
+                type="button"
+                onClick={() => setSettings(true)}
+                className="flex size-11 items-center justify-center rounded-md border border-border bg-bg-elevated/90 text-fg"
+                aria-label={t("set.title")}
+              >
+                <Settings className="size-4" />
+              </button>
+            ) : null}
           </div>
-          <div className="absolute bottom-2 left-2 right-2 z-10 sm:right-auto sm:bottom-10">
-            <TempoBar />
-          </div>
+          {mapHud ? (
+            <div className="absolute bottom-2 left-2 right-2 z-10 sm:right-auto sm:bottom-10">
+              <TempoBar />
+            </div>
+          ) : null}
         </div>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col sm:w-[380px] sm:max-w-[42vw] sm:flex-none">
           <PortPanel />

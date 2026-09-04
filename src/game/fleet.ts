@@ -1,6 +1,6 @@
-import { getPort } from "./data/ports";
-import { UPGRADES, hullById, type Hull } from "./data/ships";
-import { pointOnPath, pointOnPathStepped } from "./route";
+import { PORTS, getPort } from "./data/ports";
+import { HULLS, UPGRADES, hullById, type Hull } from "./data/ships";
+import { pointOnPath, pointOnPathStepped, seaRoute } from "./route";
 import type { GameState, Lot, MarketOffer, Ship, UpgradeId, Voyage } from "./types";
 
 export function activeShip(s: GameState): Ship | null {
@@ -79,6 +79,38 @@ export function cashTight(s: GameState, ship: Ship | null): boolean {
   return need >= 10 * bunkerTonPrice(ship) && s.cash < need;
 }
 
+/** True when no owned hull can bunker or sail, and the desk will not lend. */
+export function isStranded(s: GameState): boolean {
+  if (s.phase === "title" || s.phase === "end") return false;
+  const debtNet = s.cash - (s.debt ?? 0);
+  const working = s.fleet.filter((sh) => sh.charter !== "out");
+  if (!working.length) return debtNet < -4e5;
+  if ((s.legs ?? []).some((v) => working.some((sh) => sh.id === v.shipId))) return false;
+  if (canTakeLoan(s)) return false;
+  if (working.some((sh) => sh.hold.some((l) => l.dest === sh.port))) return false;
+  return working.every((sh) => !canAffordMinBunker(s, sh) && !canReachAnyPort(sh));
+}
+
+function canAffordMinBunker(s: GameState, ship: Ship): boolean {
+  if (ship.atSea) return false;
+  const port = getPort(ship.port);
+  if (ship.fuel === "lng" && !port.lng) return false;
+  const room = Math.max(0, ship.bunkerCap - ship.bunkers);
+  if (room < 10) return true;
+  return s.cash >= 10 * bunkerTonPrice(ship);
+}
+
+function canReachAnyPort(ship: Ship): boolean {
+  if (ship.atSea) return true;
+  const burn = burnPerNm(ship);
+  for (const p of PORTS) {
+    if (p.id === ship.port) continue;
+    const nm = seaRoute(ship.port, p.id).nm;
+    if (nm > 0 && ship.bunkers >= burn * nm * 1.08) return true;
+  }
+  return false;
+}
+
 export function cheaperOffer(s: GameState, ship: Ship): MarketOffer | null {
   const val = hullValue(ship);
   const offers = (s.market ?? []).filter((o) => o.price < val * 0.72 && o.price <= s.cash + val);
@@ -154,6 +186,71 @@ export function rangeNm(ship: Ship): number {
   return ship.bunkers / Math.max(0.0001, burnPerNm(ship));
 }
 
+/** Distance this hull can sail on a full tank, 8% weather margin included. */
+export function fullTankRangeNm(ship: Pick<Ship, "bunkerCap" | "burn" | "upgrades">): number {
+  return ship.bunkerCap / Math.max(0.0001, burnPerNm(ship as Ship)) / 1.08;
+}
+
+export function fleetReachNm(s: GameState): number {
+  const ships = s.fleet.filter((sh) => sh.charter !== "out");
+  if (!ships.length) {
+    const h = HULLS[0]!;
+    return h.bunkerCap / Math.max(0.0001, h.burn) / 1.08;
+  }
+  return Math.max(...ships.map((sh) => fullTankRangeNm(sh)));
+}
+
+export function lotInRange(ship: Ship, dest: string): boolean {
+  if (!dest || dest === ship.port) return true;
+  const nm = seaRoute(ship.port, dest).nm;
+  return nm * 1.08 <= fullTankRangeNm(ship) + 20;
+}
+
+export type BunkerPlan = {
+  extraTons: number;
+  cost: number;
+  canFill: boolean;
+  hullTooShort: boolean;
+  noLng: boolean;
+  noCash: boolean;
+  nm: number;
+};
+
+/** What it takes to leave for `dest` with a 8% weather margin. */
+export function bunkerPlanFor(s: GameState, dest: string): BunkerPlan {
+  const ship = activeShip(s);
+  const zero: BunkerPlan = {
+    extraTons: 0,
+    cost: 0,
+    canFill: true,
+    hullTooShort: false,
+    noLng: false,
+    noCash: false,
+    nm: 0,
+  };
+  if (!ship || !dest || dest === ship.port) return zero;
+  const nm = seaRoute(ship.port, dest).nm;
+  const need = burnPerNm(ship) * nm * 1.08;
+  const extraRaw = Math.max(0, need - ship.bunkers);
+  const extra = extraRaw < 0.2 ? 0 : extraRaw;
+  const room = Math.max(0, ship.bunkerCap - ship.bunkers);
+  const port = getPort(ship.port);
+  const hullTooShort = need > ship.bunkerCap + 0.05;
+  const take = extra < 0.2 ? 0 : Math.min(Math.max(1, Math.ceil(extra)), Math.floor(room));
+  const noLng = take >= 1 && ship.fuel === "lng" && !port.lng;
+  const cost = Math.round(take * bunkerTonPrice(ship));
+  const noCash = take >= 1 && s.cash < cost;
+  return {
+    extraTons: take,
+    cost,
+    canFill: take < 1 || (!hullTooShort && !noLng && !noCash),
+    hullTooShort,
+    noLng,
+    noCash,
+    nm,
+  };
+}
+
 export function lotPay(l: Lot): number {
   return Math.round(l.ceu * l.rate);
 }
@@ -182,9 +279,13 @@ export function canDrydock(portId: string): boolean {
   return getPort(portId).yard;
 }
 
+export function lotFitsDeck(ship: Ship, lot: Lot): boolean {
+  return remainingCeu(ship) >= lot.ceu && remainingHh(ship) >= (lot.hh ?? 0);
+}
+
 export function canLoadLot(ship: Ship, lot: Lot): boolean {
   if (ship.charter === "out") return false;
-  return remainingCeu(ship) >= lot.ceu && remainingHh(ship) >= (lot.hh ?? 0);
+  return lotFitsDeck(ship, lot) && lotInRange(ship, lot.dest);
 }
 
 export type ShipPos = { lon: number; lat: number; heading: number };

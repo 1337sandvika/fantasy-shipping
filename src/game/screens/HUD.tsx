@@ -39,13 +39,13 @@ export function HUD() {
       {ship ? (
         <p className="hidden tabular-nums text-muted sm:block">
           {t("hud.burn")} <span className="text-fg">{qty3(burnPerNm(ship))}</span>
-          <span className="text-subtle"> t/nm</span>
+          <span className="text-subtle"> {t("hud.perNm")}</span>
         </p>
       ) : null}
       {ship ? (
         <p className="hidden tabular-nums text-muted sm:block">
           {t("hud.co2nm")} <span className="text-fg">{qty3(co2PerNm(ship))}</span>
-          <span className="text-subtle"> t/nm</span>
+          <span className="text-subtle"> {t("hud.perNm")}</span>
         </p>
       ) : null}
       {s.heat >= 10 ? (

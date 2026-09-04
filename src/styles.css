@@ -27,6 +27,48 @@
   --radius-xl: 28px;
 
   --shadow-panel: 0 18px 40px rgb(0 0 0 / 0.35);
+  --animate-stamp: stamp-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-ticker: ticker 28s linear infinite;
+}
+
+@keyframes stamp-in {
+  0% {
+    transform: scale(2.4) rotate(-22deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(0.94) rotate(-9deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(-8deg);
+    opacity: 1;
+  }
+}
+
+@keyframes ticker {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @keyframes stamp-in {
+    0%,
+    100% {
+      transform: rotate(-8deg);
+      opacity: 1;
+    }
+  }
+  @keyframes ticker {
+    from,
+    to {
+      transform: translateX(0);
+    }
+  }
 }
 
 html.font-cjk {

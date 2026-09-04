@@ -209,7 +209,16 @@ export async function getPglite(): Promise<import("@electric-sql/pglite").PGlite
   return pg;
 }
 
-/** Finish DB bootstrap before the server handles traffic. */
+/**
+ * Finish DB bootstrap before the server handles traffic.
+ *
+ * - **PGLite** (preview / no `DATABASE_URL`): open the in-memory DB and apply
+ *   `migrations/*.sql`. Idempotent — concurrent callers share one promise.
+ * - **Neon**: no-op (pool is created lazily on first query).
+ *
+ * Vite `configureServer` awaits this at dev startup; production imports of this
+ * module kick it off immediately (see bottom of file).
+ */
 export function ensureDbReady(): Promise<void> {
   if (dbSource !== "pglite") return Promise.resolve();
   return getSql().then(() => undefined);
