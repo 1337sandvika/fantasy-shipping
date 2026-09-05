@@ -35,7 +35,10 @@ npm run cap:open    # Mac only: open Xcode
 - Display name: Fantasy Shipping
 - Career sim is offline (localStorage). Auth and leagues call
   `https://palm-river-olive-field.grok.me` (`VITE_API_BASE_URL`).
-- Free game today — no in-app purchases. Digital unlocks on iOS must use Apple IAP.
+- **Web / grok.me** stays free (no IAP).
+- **iOS App Store** is a free download with a 14-day full trial, then a
+  one-time StoreKit unlock (`com.fantasyshipping.app.full_unlock`, ~$4.99).
+  Not Stripe. Restore Purchases is in Settings. See **[APP_STORE.md](./APP_STORE.md)**.
 - Sign in with Apple is required only if Google/X stay in the iOS binary.
   Email-only (already hidden on iOS WKWebView) avoids that for v1.
 

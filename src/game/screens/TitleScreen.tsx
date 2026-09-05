@@ -7,7 +7,9 @@ import { unlockAudio } from "../audio";
 import { clearPendingScore, readPendingScore } from "../pending-score";
 import { submitCareer } from "../score-api";
 import { useGame } from "../store";
+import { requirePlay, useIap } from "@/lib/iap";
 import { AuthBar } from "./AuthBar";
+import { Paywall, TrialChip } from "./Paywall";
 import { TourneyTeaser } from "./OfficialTournaments";
 
 export function TitleScreen() {
@@ -23,6 +25,7 @@ export function TitleScreen() {
   const [postedNote, setPostedNote] = useState<string | null>(null);
   const filledName = useRef(false);
   const t = useT();
+  const paywallOpen = useIap((s) => s.paywallOpen);
 
   useEffect(() => {
     if (isPending || !user) return;
@@ -87,19 +90,20 @@ export function TitleScreen() {
         <div className="mt-5 flex max-w-md flex-col gap-2 sm:flex-row">
           {hasSave ? (
             <>
-              <Button className="flex-1" onClick={continueSave}>
+              <Button className="flex-1" onClick={() => requirePlay(continueSave)}>
                 {t("title.continue")}
               </Button>
-              <Button className="flex-1" variant="secondary" onClick={() => start(company, director)}>
+              <Button className="flex-1" variant="secondary" onClick={() => requirePlay(() => start(company, director))}>
                 {t("title.new")}
               </Button>
             </>
           ) : (
-            <Button className="flex-1" onClick={() => start(company, director)}>
+            <Button className="flex-1" onClick={() => requirePlay(() => start(company, director))}>
               {t("title.new")}
             </Button>
           )}
         </div>
+        <TrialChip />
         <p className="mt-3 max-w-md text-xs text-subtle">{user ? t("title.signedIn") : t("title.guest")}</p>
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <button type="button" className="text-xs text-muted underline-offset-4 hover:text-fg hover:underline" onClick={() => setAbout(true)}>
@@ -111,6 +115,7 @@ export function TitleScreen() {
           <TourneyTeaser />
         </div>
       </div>
+      {paywallOpen ? <Paywall /> : null}
       {about ? (
         <div className="absolute inset-0 z-20 grid place-items-center bg-bg/80 p-4" role="dialog">
           <div className="max-w-lg rounded-xl border border-border bg-bg-elevated p-6 shadow-panel">

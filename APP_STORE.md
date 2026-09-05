@@ -31,6 +31,8 @@ already registered a different one in App Store Connect.
 - Email/password sign-in on iOS (Google / X buttons stay hidden in the
   WKWebView so you do **not** have to ship Sign in with Apple for v1)
 - CORS + origin allow-list on the **hosted** server for `capacitor://localhost`
+- StoreKit 2 IAP (`@capgo/native-purchases`): 14-day trial, then
+  `com.fantasyshipping.app.full_unlock` (~$4.99). Web builds stay free.
 
 You still have to: Apple Developer Program, Xcode signing, screenshots,
 privacy answers, and the Connect upload. This PR does **not** submit the app.
@@ -145,8 +147,11 @@ Nothing here is submitted for you.
   `ITSAppUsesNonExemptEncryption` to `NO` in Info.plist (already set in
   the Xcode project when present).
 - **Advertising**: none.
-- **In-App Purchases**: none in this build. If you later add paid unlocks,
-  they **must** use Apple IAP — not Stripe — on iOS.
+- **In-App Purchases**: one non-consumable, `com.fantasyshipping.app.full_unlock`
+  (~$4.99). The iOS app is **Free** to download with a 14-day on-device trial;
+  after that the career is gated until StoreKit unlock / Restore Purchases.
+  Do **not** use Stripe on iOS. See **In-App Purchase (required for this build)**
+  below.
 - **Sign in with Apple**: not required while Google/X stay hidden on iOS
   (email/password + guest play). If you turn social login back on in the
   binary, add Sign in with Apple first.
@@ -164,6 +169,132 @@ Collects **only if the player signs in**:
 Guest play stores the save in **on-device** `localStorage` only.
 
 Account deletion is on the privacy page (signed-in users).
+
+---
+
+## In-App Purchase (required for this build)
+
+Apple does **not** offer a free trial on a paid ($4.99) app. This build is
+**freemium**:
+
+| Item | Value |
+| --- | --- |
+| App price | **Free** (price tier 0) |
+| Trial | 14 days of full career play from first launch |
+| Unlock | Non-consumable IAP, one-time |
+| Product ID | `com.fantasyshipping.app.full_unlock` |
+| Display price | **$4.99 USD** (or local equivalent Apple shows) |
+| Plugin | `@capgo/native-purchases` v8 (StoreKit 2, Capacitor 8) |
+| Web / grok.me | No IAP — stays free, plugin is never called |
+
+Unlock is granted only when StoreKit reports a current transaction for that
+product. A local cache avoids a paywall flash; it is rewritten from StoreKit
+on each launch. The trial start timestamp is stored in the same WebView
+`localStorage` as the career save (`fs-iap-trial-start`). Deleting the app
+resets the trial; **Restore Purchases** restores a paid unlock on the same
+Apple ID.
+
+Do not put Apple API keys, shared secrets, or `.p8` / `.p12` files in this repo.
+
+### A. Paid Apps Agreement (once per developer account)
+
+1. App Store Connect → **Business** (or Agreements, Tax, and Banking).
+2. Accept the **Paid Applications Agreement**.
+3. Fill **tax** and **banking**. IAP cannot go on sale until this is Cleared.
+4. Wait until the agreement status is **Active** (can take a day).
+
+### B. Make the app Free
+
+1. The app record → **Monetization** / **Pricing and Availability**.
+2. Price: **Free** (do not set a paid app price of $4.99).
+3. Availability: the countries you want.
+
+### C. Create the non-consumable
+
+1. App Store Connect → the Fantasy Shipping app → **Monetization** →
+   **In-App Purchases** → **+**.
+2. Type: **Non-Consumable**.
+3. Product ID: `com.fantasyshipping.app.full_unlock`  
+   (must match exactly — this string is compiled into the app).
+4. Reference name: `Full Career Unlock`.
+5. Price: **$4.99** USD (Apple maps local prices).
+6. Localization (at least English; add Norwegian if you want):
+   - Display name: **Full Career Unlock** / **Full karriereopplåsing**
+   - Description: unlock the full career after the 14-day trial. One-time.
+7. Review screenshot: a paywall / title frame that shows the unlock button
+   (Simulator or device).
+8. Review notes: “14-day on-device trial, then this IAP unlocks career play.
+   Restore Purchases is on the paywall and in Settings.”
+9. Submit the IAP **with the same binary** you upload (or set it Ready to
+   Submit). An IAP that is not attached to a build will not appear in sandbox.
+
+Also add the **In-App Purchase** capability in Xcode if Signing & Capabilities
+does not already list it (this repo enables `com.apple.InAppPurchase` and
+ships `App/App.entitlements`).
+
+### D. Sandbox testing on a device (required)
+
+The Simulator **cannot** talk to the real App Store. Use a physical iPhone
+for the review-quality path. Local StoreKit testing (below) only proves the
+sheet appears.
+
+1. App Store Connect → **Users and Access** → **Sandbox** → **Testers** →
+   create a tester (a fake email is fine; do not use your real Apple ID).
+2. On the iPhone: Settings → Developer → **Sandbox Apple Account** (iOS 18+)
+   or Settings → App Store → Sandbox Account. Sign in as the tester.
+   Or: sign out of the real Media & Purchases account and let the purchase
+   sheet ask for the sandbox login.
+3. `npm run cap:sync` then `npm run cap:open` on a Mac. Run on the device
+   (not Simulator) with your Development team.
+4. First launch starts the 14-day trial. Confirm **New career** works.
+5. You can buy during the trial (StoreKit still records the non-consumable).
+   To force the expired-trial paywall on a test device without waiting 14
+   days: Mac Safari → Develop → [your iPhone] → the Fantasy Shipping
+   WebView → Console:
+
+   ```js
+   localStorage.setItem("fs-iap-trial-start", String(Date.now() - 15 * 864e5))
+   location.reload()
+   ```
+
+   New career / Continue then opens the paywall. Do not ship a hidden
+   “skip trial” button.
+6. Tap **Unlock full career**. Confirm the StoreKit sheet shows the
+   **App Store price string** (not a hardcoded $4.99). Complete with the
+   sandbox tester. Career play continues.
+7. Delete the app, reinstall, tap **Restore Purchases**. Unlock must return
+   without charging again.
+8. Settings must keep a **Restore Purchases** button (App Review).
+
+If products do not load: wait up to a few hours after creating the IAP;
+confirm the bundle ID is `com.fantasyshipping.app`; confirm the Paid Apps
+Agreement is Active; confirm you are using a sandbox tester on device.
+
+### E. Simulator / Xcode StoreKit config (optional, local only)
+
+This repo ships `ios/App/App/Products.storekit` with the same product ID at
+$4.99. The shared **App** scheme points at it for Debug runs.
+
+1. Xcode → Product → Scheme → Edit Scheme → Run → Options → StoreKit
+   Configuration → `Products.storekit`.
+2. Run on the Simulator. The purchase sheet is Apple’s local StoreKit,
+   not sandbox, not real money.
+3. **Archive / TestFlight / App Review ignore this file.** Those builds
+   load the IAP from App Store Connect only.
+
+### F. After IAP is created — new Archive
+
+The previous upload had no IAP. You must:
+
+1. `npm run cap:sync`
+2. Xcode → **Any iOS Device** → Product → **Archive** → Distribute →
+   App Store Connect.
+3. In the app version, attach `com.fantasyshipping.app.full_unlock`.
+4. Review notes: free app, 14-day trial, one-time unlock, Restore Purchases
+   on the paywall and in Settings. No Stripe.
+
+This repository does **not** submit the app and does not contain Apple
+credentials.
 
 ---
 
@@ -222,7 +353,9 @@ web bundle copies. It cannot Archive or codesign (no Xcode).
 - [ ] Deploy this branch to the hosted backend so native sign-in/CORS work
 - [ ] Archive → Upload → submit for review
 - [ ] If you add Google/X to the iOS UI: Sign in with Apple
-- [ ] If you add paid content: StoreKit IAP
+- [ ] Paid Apps Agreement + Free app price + IAP `com.fantasyshipping.app.full_unlock`
+- [ ] Sandbox test of purchase + Restore Purchases on a device
+- [ ] Archive / upload this IAP build (do not ship the previous no-IAP binary)
 
 Do not commit `.p12` certificates, AuthKey `.p8` files, or provisioning
 profiles.
