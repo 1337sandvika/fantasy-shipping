@@ -1462,7 +1462,7 @@ function arriveShip(s, shipId) {
   if (!v) return s;
   const ship = s.fleet.find((x) => x.id === shipId);
   if (!ship) return s;
-  const next = {
+  let next = {
     ...s,
     selectedPort: s.activeId === shipId ? v.to : s.selectedPort,
     legs: s.legs.filter((x) => x.shipId !== shipId),
