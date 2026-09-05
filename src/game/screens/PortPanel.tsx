@@ -31,6 +31,8 @@ import {
   usedHh,
   withUpgrade,
   bunkerPlanFor,
+  bargeQuote,
+  bargeLeft,
 } from "../fleet";
 import { daysLeft, money, qty, qty1, qty3 } from "../format";
 import { inEurope } from "../geo";
@@ -143,19 +145,29 @@ function SailCard({
   const t = useT();
   const s = useGame((g) => g.state);
   const setTab = useGame((g) => g.setTab);
+  const offerBarge = useGame((g) => g.offerBarge);
   const going = destSummary(ship.hold).find((d) => d.dest === destId);
   const plan = bunkerPlanFor(s, destId);
   const nm = Math.round(plan.nm || seaRoute(ship.port, destId).nm);
   const label = rec ? t("course.recommend") : picked ? t("course.picked") : t("course.suggested");
   const dest = getPort(destId);
   const share = etsShare(ship.port, destId);
-  const blocked = plan.hullTooShort || plan.noLng || plan.noCash;
+  const waiting = Boolean(ship.barge && s.day < ship.barge.eta);
+  const blocked = plan.hullTooShort || plan.noLng || plan.noCash || waiting;
   const sailLabel =
     plan.extraTons >= 1 && plan.canFill
       ? t("course.sailFuel", { n: money(plan.cost) })
       : `${t("course.sail")} → ${portName(destId)}`;
 
   function go(full?: boolean) {
+    if (waiting) {
+      setErr(t("sail.barge"));
+      return;
+    }
+    if (plan.noLng) {
+      offerBarge();
+      return;
+    }
     if (blocked) {
       setErr(null);
       setTab("bunkers");
@@ -180,15 +192,25 @@ function SailCard({
       <p className={cn("text-xs", etsTone(share))}>{t(etsLabelKey(ship.port, destId))}</p>
       {plan.hullTooShort ? (
         <p className="mt-2 text-xs text-danger">{t("course.tooFar", { port: portName(destId) })}</p>
+      ) : waiting ? (
+        <p className="mt-2 text-xs text-warn">{t("sail.barge")}</p>
       ) : plan.noLng ? (
-        <p className="mt-2 text-xs text-warn">{t("bunker.lngNone")}</p>
+        <p className="mt-2 text-xs text-warn">{t("bunker.lngBargeHintShort")}</p>
       ) : plan.noCash ? (
         <p className="mt-2 text-xs text-danger">{t("bunker.need", { tons: qty(Math.ceil(plan.extraTons)), port: portName(destId), nm: qty(nm) })}</p>
       ) : plan.extraTons >= 1 ? (
         <p className="mt-1 text-xs text-muted">{t("bunker.need", { tons: qty(Math.ceil(plan.extraTons)), port: portName(destId), nm: qty(nm) })}</p>
       ) : null}
       <div className="mt-2 flex gap-2">
-        {plan.hullTooShort ? null : blocked ? (
+        {plan.hullTooShort ? null : waiting ? (
+          <Button className="flex-1" onClick={() => setTab("bunkers")}>
+            {t("bunker.waitBarge", { days: bargeLeft(ship, s.day).toFixed(1) })}
+          </Button>
+        ) : plan.noLng ? (
+          <Button className="flex-1" onClick={() => offerBarge()}>
+            {t("bunker.lngBarge")}
+          </Button>
+        ) : blocked ? (
           <Button className="flex-1" onClick={() => setTab("bunkers")}>
             {t("course.bunker")}
           </Button>
@@ -501,6 +523,8 @@ function CargoTab() {
 function BunkerTab() {
   const s = useGame((g) => g.state);
   const bunker = useGame((g) => g.bunker);
+  const offerBarge = useGame((g) => g.offerBarge);
+  const waitBarge = useGame((g) => g.waitBarge);
   const selectPort = useGame((g) => g.selectPort);
   const setTab = useGame((g) => g.setTab);
   const t = useT();
@@ -510,6 +534,9 @@ function BunkerTab() {
   const room = Math.max(0, ship.bunkerCap - ship.bunkers);
   const price = ship.fuel === "lng" ? port.bunker * 0.85 : port.bunker;
   const blocked = ship.fuel === "lng" && !port.lng;
+  const quote = blocked && !ship.atSea ? bargeQuote(s, ship) : null;
+  const bargeDays = bargeLeft(ship, s.day);
+  const waiting = bargeDays > 0;
   const afford = price > 0 ? Math.floor(s.cash / price) : 0;
   const fill80 = Math.min(80, room, afford);
   const fillAll = Math.min(room, afford);
@@ -517,7 +544,7 @@ function BunkerTab() {
   const dest = s.selectedPort !== ship.port ? s.selectedPort : suggestedDestId(ship, s.lots[ship.port] ?? []);
   const need = dest ? burnPerNm(ship) * seaRoute(ship.port, dest).nm * 1.08 : 0;
   const atSea = ship.atSea;
-  const broke = s.cash < 0 || (fill80 < 10 && room >= 10 && !blocked && !atSea);
+  const broke = s.cash < 0 || (fill80 < 10 && room >= 10 && !blocked && !atSea && !waiting);
   const lngList =
     ship.fuel === "lng"
       ? lngPorts()
@@ -534,24 +561,56 @@ function BunkerTab() {
         {qty(ship.bunkers)} / {qty(ship.bunkerCap)} t {ship.fuel.toUpperCase()}
       </p>
       <p className="text-xs text-muted">
-        {blocked ? "—" : `${money(price)} / t`} · {t("bunker.range", { n: qty(Math.round(range)) })} · {qty1(burnPerNm(ship))} t/nm
+        {blocked || waiting ? "—" : `${money(price)} / t`} · {t("bunker.range", { n: qty(Math.round(range)) })} · {qty1(burnPerNm(ship))} t/nm
       </p>
-      {ship.fuel === "lng" ? (
+      {waiting ? (
+        <div className="rounded-md border border-warn/50 bg-warn/10 p-3">
+          <p className="text-sm text-warn">
+            {t("bunker.lngBargeWait", {
+              hub: portName(ship.barge!.from),
+              left: bargeDays.toFixed(1),
+            })}
+          </p>
+          <p className="mt-1 text-xs text-muted">{t("bunker.lngBargeStay", { port: port.name })}</p>
+          <Button className="mt-3 w-full" onClick={() => waitBarge()}>
+            {t("bunker.waitBarge", { days: bargeDays.toFixed(1) })}
+          </Button>
+        </div>
+      ) : null}
+      {ship.fuel === "lng" && !waiting ? (
         blocked ? (
-          <p className="text-sm text-warn">{t("bunker.lngNone")}</p>
+          <div className="rounded-md border border-warn/50 bg-warn/10 p-3">
+            <p className="text-sm text-warn">{t("bunker.lngNone")}</p>
+            <p className="mt-1 text-xs text-muted">{t("bunker.lngBargeWarn")}</p>
+            {quote ? (
+              <>
+                <p className="mt-2 text-xs text-fg">
+                  {t("bunker.lngBargeHint", {
+                    hub: quote.hubName,
+                    days: quote.days,
+                    price: money(quote.pricePerT),
+                  })}
+                </p>
+                <Button className="mt-3 w-full" disabled={!quote.canPay || atSea} onClick={() => offerBarge()}>
+                  {t("bunker.lngBargeCost", { tons: qty(quote.tons), cost: money(quote.cost) })}
+                </Button>
+                {!quote.canPay ? <p className="mt-2 text-xs text-danger">{t("bunker.noCash")}</p> : null}
+              </>
+            ) : null}
+          </div>
         ) : (
           <p className="text-sm text-ok">{t("bunker.lngHere")}</p>
         )
       ) : null}
-      {dest && need > 0 ? (
+      {dest && need > 0 && !waiting ? (
         <p className="text-xs text-muted">
           {t("bunker.need", { tons: qty(Math.ceil(need)), port: portName(dest), nm: qty(Math.round(seaRoute(ship.port, dest).nm)) })}
         </p>
       ) : null}
-      <Button disabled={blocked || fill80 < 10 || atSea} className="w-full" onClick={() => bunker(fill80)}>
+      <Button disabled={blocked || waiting || fill80 < 10 || atSea} className="w-full" onClick={() => bunker(fill80)}>
         {t("bunker.fill80", { n: money(Math.round(fill80 * price)) })}
       </Button>
-      <Button variant="secondary" disabled={blocked || fillAll < 10 || atSea} className="w-full" onClick={() => bunker(fillAll)}>
+      <Button variant="secondary" disabled={blocked || waiting || fillAll < 10 || atSea} className="w-full" onClick={() => bunker(fillAll)}>
         {t("bunker.fillTank", { n: money(Math.round(fillAll * price)) })}
       </Button>
       {lngList.length ? (

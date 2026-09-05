@@ -27,10 +27,12 @@ import {
   repayLoan,
   takeTcIn,
   charterOut,
+  offerBarge,
+  waitBarge,
 } from "./sim";
 import { persist, loadSave, hasSaveFlag, clearSave } from "./save";
 import { blip, foghorn } from "./audio";
-import { bunkerPlanFor, fleetValue } from "./fleet";
+import { activeShip, bunkerPlanFor, fleetHasBarge, fleetValue } from "./fleet";
 import { writePendingScore } from "./pending-score";
 
 type Store = {
@@ -57,6 +59,8 @@ type Store = {
   load: (lotId: string) => void;
   discharge: () => void;
   bunker: (tons: number) => void;
+  offerBarge: () => void;
+  waitBarge: () => void;
   repair: () => void;
   drydock: () => void;
   upgrade: (id: UpgradeId) => void;
@@ -178,6 +182,20 @@ export const useGame = create<Store>((set, get) => ({
     persist(state);
     set({ state });
   },
+  offerBarge: () => {
+    const state = offerBarge(get().state);
+    persist(state);
+    set({ state });
+  },
+  waitBarge: () => {
+    const state = waitBarge(get().state);
+    persist(state);
+    set({ state });
+    if (state.phase === "end") {
+      stash(state);
+      if (state.endKind === "broke") foghorn();
+    }
+  },
   repair: () => {
     const state = repair(get().state);
     persist(state);
@@ -240,7 +258,12 @@ export const useGame = create<Store>((set, get) => ({
     let state = get().state;
     const plan = bunkerPlanFor(state, dest);
     if (plan.hullTooShort) return "course.tooFar";
-    if (plan.noLng) return "bunker.lngNone";
+    if (plan.noLng) {
+      const offered = offerBarge(state);
+      persist(offered);
+      set({ state: offered, ui: { ...get().ui, tempo: 0 } });
+      return "bunker.lngNone";
+    }
     if (plan.noCash) return "bunker.noCash";
     if (plan.extraTons >= 1) state = bunker(state, plan.extraTons);
     const err = sailCheck(state, dest);
@@ -255,9 +278,16 @@ export const useGame = create<Store>((set, get) => ({
     return null;
   },
   choose: (choice) => {
-    const state = resolveEvent(get().state, choice);
+    const prev = get().state;
+    const state = resolveEvent(prev, choice);
     persist(state);
-    set({ state });
+    const ui = get().ui;
+    const startedBarge = !activeShip(prev)?.barge && Boolean(activeShip(state)?.barge);
+    if (startedBarge && ui.tempo === 0) {
+      set({ state, ui: { ...ui, tempo: ui.lastTempo || 4 } });
+    } else {
+      set({ state });
+    }
     if (state.phase === "end") stash(state);
   },
   retire: () => {
@@ -293,15 +323,17 @@ export const useGame = create<Store>((set, get) => ({
     if (!st.legs.length) return;
     try {
       const n0 = st.legs.length;
+      const barge0 = fleetHasBarge(st);
       const state = tickVoyage(st, dtDays);
       const ui = get().ui;
-      if (state.legs.length < n0) {
+      const bargeDone = barge0 && !fleetHasBarge(state);
+      if (state.legs.length < n0 || bargeDone) {
         const last = ui.tempo === 0 ? ui.lastTempo : ui.tempo;
         set({ state, ui: { ...ui, tempo: 0, lastTempo: last } });
       } else {
         set({ state });
       }
-      if (state.phase !== st.phase || !state.legs.length) persist(state);
+      if (state.phase !== st.phase || !state.legs.length || bargeDone) persist(state);
       else if (Math.floor(state.day) !== Math.floor(st.day)) persist(state);
       if (state.phase === "end") {
         stash(state);

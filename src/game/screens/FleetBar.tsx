@@ -16,7 +16,9 @@ export function FleetBar() {
         const on = sh.id === s.activeId;
         const leg = shipLeg(s, sh.id);
         const pct = leg && leg.nm > 0 ? Math.round((leg.travelled / leg.nm) * 100) : 0;
-        const loc = sh.atSea && leg
+        const loc = sh.barge && s.day < sh.barge.eta
+          ? t("fleet.barge", { port: PORTS.find((p) => p.id === sh.port)?.name ?? sh.port })
+          : sh.atSea && leg
           ? t("fleet.atSea", { port: portName(leg.to), pct })
           : t("fleet.inPort", { port: PORTS.find((p) => p.id === sh.port)?.name ?? sh.port });
         const used = sh.ceu - remainingCeu(sh);

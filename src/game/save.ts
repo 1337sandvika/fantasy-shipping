@@ -26,6 +26,15 @@ function hydrateShip(sh: Ship): Ship {
     upgrades,
     hold: (sh.hold ?? []).map(hydrateLot),
     charter,
+    barge:
+      sh.barge && typeof sh.barge.eta === "number" && typeof sh.barge.tons === "number"
+        ? {
+            from: String(sh.barge.from || ""),
+            eta: sh.barge.eta,
+            tons: sh.barge.tons,
+            cost: sh.barge.cost ?? 0,
+          }
+        : null,
   };
 }
 

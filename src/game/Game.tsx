@@ -16,7 +16,7 @@ import { TitleScreen } from "./screens/TitleScreen";
 import { hydrateIap, iapCanPlay, refreshTrialClock, useIap } from "@/lib/iap";
 import { hydrateSaveFlag, useGame } from "./store";
 import { setMuted } from "./audio";
-import { activeShip, drydockLeft } from "./fleet";
+import { activeShip, bargeLeft, drydockLeft, fleetHasBarge } from "./fleet";
 
 const DAYS_PER_MIN = 12;
 
@@ -50,7 +50,7 @@ export function Game() {
         iapCanPlay()
       ) {
         const tempo = g.ui.tempo;
-        if (tempo > 0 && g.state.legs.length) {
+        if (tempo > 0 && (g.state.legs.length || fleetHasBarge(g.state))) {
           tick((dt * DAYS_PER_MIN * tempo) / 60);
         }
       }
@@ -144,13 +144,18 @@ function StatusBanners() {
   const t = useT();
   if (s.phase === "event") return null;
   const left = ship ? drydockLeft(ship, s.day) : 99;
+  const bargeDays = ship ? bargeLeft(ship, s.day) : 0;
   const heat = s.heat ?? 0;
   const ddWarn = Boolean(ship) && left <= 40;
   const heatWarn = heat >= 22;
   const etsWarn = Boolean(s.ets) || (s.etsAcc ?? 0) > 80;
-  if (!ddWarn && !heatWarn && !etsWarn) return null;
+  const bargeWarn = bargeDays > 0;
+  if (!ddWarn && !heatWarn && !etsWarn && !bargeWarn) return null;
   return (
     <div className="flex flex-wrap gap-2 border-b border-border bg-surface px-3 py-1 text-xs">
+      {bargeWarn ? (
+        <span className="text-warn">{t("hud.barge", { n: bargeDays.toFixed(1) })}</span>
+      ) : null}
       {ddWarn ? (
         <span className={left < 0 ? "text-danger" : "text-warn"}>{t("hud.drydock", { n: Math.round(left) })}</span>
       ) : null}

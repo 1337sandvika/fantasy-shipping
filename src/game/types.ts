@@ -46,6 +46,14 @@ export type Ship = {
   atSea: boolean;
   etsAcc: number;
   charter?: CharterKind | null;
+  barge?: BargeJob | null;
+};
+
+export type BargeJob = {
+  from: string;
+  eta: number;
+  tons: number;
+  cost: number;
 };
 
 export type Voyage = {

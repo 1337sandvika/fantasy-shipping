@@ -2,11 +2,12 @@
 import { BRANDS, ODD, LOT_FLAVOUR, SHIP_NAMES, TC_DESKS } from "./data/cargo";
 import { CUSTOMS_HUBS, PORTS, etsShare, getPort, portName } from "./data/ports";
 import { HULLS, UPGRADES, hullById } from "./data/ships";
-import { isWinter, monthKey } from "./format";
+import { isWinter, monthKey, money } from "./format";
 import { inEurope } from "./geo";
 import {
   activeLeg,
   activeShip,
+  bargeQuote,
   burnPerNm,
   canDrydock,
   canLoadLot,
@@ -635,7 +636,7 @@ export function takeTcIn(s, offerId) {
 }
 export function charterOut(s, shipId, days = 30) {
   const ship = s.fleet.find((x) => x.id === shipId);
-  if (!ship || ship.atSea || ship.hold.length || ship.charter) return s;
+  if (!ship || ship.atSea || ship.hold.length || ship.charter || ship.barge) return s;
   const rate = Math.round(ship.opex * (1.32 + ship.condition / 280));
   const n = days === 14 || days === 21 || days === 45 || days === 60 ? days : 30;
   const ch = {
@@ -815,6 +816,108 @@ export function bunker(s, tons) {
   log(next, "log.bunker", { tons: Math.round(take), fuel: ship.fuel.toUpperCase(), port: portName(ship.port), cost });
   return next;
 }
+export function offerBarge(s) {
+  const ship = activeShip(s);
+  if (!ship) return s;
+  const q = bargeQuote(s, ship);
+  if (!q) return s;
+  return {
+    ...s,
+    phase: "event",
+    tab: "bunkers",
+    event: {
+      id: "lngbarge",
+      title: "event.lngbarge.title",
+      body: t("event.lngbarge.body", {
+        port: portName(ship.port),
+        hub: q.hubName,
+        nm: q.nm,
+        days: q.days,
+        tons: q.tons,
+        price: money(q.pricePerT),
+        cost: money(q.cost),
+      }),
+      a: {
+        id: "order",
+        label: "event.lngbarge.order",
+        hint: t("event.lngbarge.orderHint", { days: q.days, cost: money(q.cost) }),
+      },
+      b: {
+        id: "skip",
+        label: "event.lngbarge.skip",
+        hint: t("event.lngbarge.skipHint", { hub: q.hubName }),
+      },
+    },
+  };
+}
+export function orderBarge(s) {
+  const ship = activeShip(s);
+  if (!ship || ship.atSea || ship.barge) return s;
+  const q = bargeQuote(s, ship);
+  if (!q || !q.canPay) return s;
+  const next = {
+    ...s,
+    phase: "port",
+    event: null,
+    tab: "bunkers",
+    cash: s.cash - q.cost,
+    fleet: s.fleet.map((sh) =>
+      sh.id === ship.id
+        ? {
+            ...sh,
+            barge: { from: q.hub, eta: s.day + q.days, tons: q.tons, cost: q.cost },
+          }
+        : sh,
+    ),
+  };
+  log(next, "log.bargeOrder", {
+    hub: q.hubName,
+    port: portName(ship.port),
+    tons: q.tons,
+    cost: q.cost,
+    days: q.days,
+  });
+  return next;
+}
+export function waitBarge(s) {
+  const ship = activeShip(s);
+  if (!ship?.barge) return s;
+  const days = Math.max(0.1, ship.barge.eta - s.day);
+  let next = {
+    ...s,
+    day: s.day + days,
+  };
+  log(next, "log.bargeWait", { days: days.toFixed(1), port: portName(ship.port) });
+  refreshMarket(next);
+  refreshTc(next);
+  next = tickOpex(next, days);
+  next = tickCharters(next, days);
+  next = advanceLegs(next, days, false);
+  next = tickBarges(next);
+  return maybeEnd(maybeEts(next));
+}
+function tickBarges(s) {
+  let next = s;
+  for (const sh of s.fleet) {
+    if (!sh.barge || next.day + 0.02 < sh.barge.eta) continue;
+    const tons = sh.barge.tons;
+    const port = portName(sh.port);
+    next = {
+      ...next,
+      fleet: next.fleet.map((x) =>
+        x.id === sh.id
+          ? {
+              ...x,
+              bunkers: Math.min(x.bunkerCap, x.bunkers + tons),
+              barge: null,
+            }
+          : x,
+      ),
+    };
+    log(next, "log.bargeDone", { tons, port });
+  }
+  return next;
+}
 export function repair(s) {
   const ship = activeShip(s);
   if (!ship || ship.atSea) return s;
@@ -864,6 +967,7 @@ export function drydock(s) {
   next = tickOpex(next, days);
   next = tickCharters(next, days);
   next = advanceLegs(next, days, false);
+  next = tickBarges(next);
   return maybeEts(next);
 }
 export function fitUpgrade(s, id) {
@@ -904,9 +1008,10 @@ export function waitDay(s) {
   next = tickOpex(next, 1);
   next = tickCharters(next, 1);
   next = advanceLegs(next, 1, true);
+  next = tickBarges(next);
   next = maybeEnd(maybeEts(next));
   if (next.phase === "event" || next.phase === "end") return next;
-  if (ship && !ship.atSea && ship.charter !== "out" && Math.random() < 0.32) return pickQuayEvent(next);
+  if (ship && !ship.atSea && ship.charter !== "out" && !ship.barge && Math.random() < 0.32) return pickQuayEvent(next);
   return next;
 }
 function tickOpex(s, days) {
@@ -1030,6 +1135,7 @@ export function sailCheck(s, dest) {
   if (s.ets) return "sail.ets";
   if (!ship) return "sail.noShip";
   if (ship.charter === "out") return "sail.tc";
+  if (ship.barge && s.day < ship.barge.eta) return "sail.barge";
   if (ship.atSea) return "sail.notPort";
   if (dest === ship.port) return "sail.here";
   if (ship.condition < 18) return "sail.repair";
@@ -1127,7 +1233,8 @@ function tickOne(s, shipId, dtDays, events) {
 }
 export function tickVoyage(s, dtDays) {
   if (s.phase === "event" || s.phase === "end" || s.phase === "title") return s;
-  if (!s.legs.length) return s;
+  const waiting = s.fleet.some((sh) => sh.barge && s.day < sh.barge.eta);
+  if (!s.legs.length && !waiting) return s;
   let next = {
     ...s,
     day: s.day + dtDays,
@@ -1135,6 +1242,7 @@ export function tickVoyage(s, dtDays) {
   next = tickOpex(next, dtDays);
   next = tickCharters(next, dtDays);
   next = advanceLegs(next, dtDays, true);
+  next = tickBarges(next);
   return maybeEnd(maybeEts(next));
 }
 function arriveShip(s, shipId) {
@@ -1170,6 +1278,20 @@ function arriveShip(s, shipId) {
       activeId: shipId,
       selectedPort: v.to,
     });
+  const docked = next.fleet.find((x) => x.id === shipId);
+  if (
+    docked?.fuel === "lng" &&
+    !getPort(v.to).lng &&
+    !docked.barge &&
+    docked.bunkers / Math.max(1, docked.bunkerCap) < 0.6
+  ) {
+    return offerBarge({
+      ...next,
+      activeId: shipId,
+      selectedPort: v.to,
+      tab: "bunkers",
+    });
+  }
   return maybeEnd(maybeEts(next));
 }
 export function customsEvent(s) {
@@ -1628,6 +1750,13 @@ export function resolveEvent(s, choice) {
       next = { ...next, cash: next.cash - 9000 };
       log(next, "log.ev.cookFire");
     } else log(next, "log.ev.cookOk");
+  } else if (ev.id === "lngbarge") {
+    if (choice === "order") {
+      next = orderBarge(next);
+    } else {
+      const hub = bargeQuote(s, ship)?.hubName;
+      log(next, "log.bargeSkip", { hub: hub || "—" });
+    }
   }
   return maybeEnd(next);
 }

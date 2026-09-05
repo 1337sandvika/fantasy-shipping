@@ -1,4 +1,4 @@
-import { PORTS, getPort } from "./data/ports";
+import { PORTS, getPort, portName } from "./data/ports";
 import { HULLS, UPGRADES, hullById, type Hull } from "./data/ships";
 import { pointOnPath, pointOnPathStepped, seaRoute } from "./route";
 import type { GameState, Lot, MarketOffer, Ship, UpgradeId, Voyage } from "./types";
@@ -52,6 +52,74 @@ export function bunkerTonPrice(ship: Ship): number {
   return ship.fuel === "lng" && port.lng ? port.bunker * 0.85 : port.bunker;
 }
 
+export type BargeQuote = {
+  hub: string;
+  hubName: string;
+  nm: number;
+  days: number;
+  tons: number;
+  pricePerT: number;
+  call: number;
+  cost: number;
+  canPay: boolean;
+};
+
+export function nearestLngId(from: string): string | null {
+  const here = getPort(from);
+  if (here.lng) return here.id;
+  let best: string | null = null;
+  let bestNm = Infinity;
+  for (const p of PORTS) {
+    if (!p.lng || p.id === from) continue;
+    const nm = seaRoute(from, p.id).nm;
+    if (nm < bestNm) {
+      bestNm = nm;
+      best = p.id;
+    }
+  }
+  return best;
+}
+
+/** LNG bunker barge from the nearest LNG hub. Slow, expensive, ship stays put. */
+export function bargeQuote(s: GameState, ship: Ship): BargeQuote | null {
+  if (ship.fuel !== "lng" || ship.atSea || ship.charter === "out") return null;
+  if (getPort(ship.port).lng) return null;
+  if (ship.barge && s.day < ship.barge.eta) return null;
+  const hub = nearestLngId(ship.port);
+  if (!hub) return null;
+  const room = Math.max(0, ship.bunkerCap - ship.bunkers);
+  if (room < 20) return null;
+  const nm = seaRoute(ship.port, hub).nm;
+  const tons = Math.round(room);
+  const steamDays = nm / 11 / 24;
+  const pump = 0.35 + Math.min(0.55, tons / 1100);
+  const days = Math.round((Math.max(0.45, steamDays) + pump) * 10) / 10;
+  const shore = getPort(hub).bunker * 0.85;
+  const pricePerT = Math.round(shore * 1.65);
+  const call = 24_000 + Math.round(nm * 32);
+  const cost = Math.round(tons * pricePerT + call);
+  return {
+    hub,
+    hubName: portName(hub),
+    nm: Math.round(nm),
+    days,
+    tons,
+    pricePerT,
+    call,
+    cost,
+    canPay: s.cash >= cost,
+  };
+}
+
+export function bargeLeft(ship: Ship, day: number): number {
+  if (!ship.barge) return 0;
+  return Math.max(0, ship.barge.eta - day);
+}
+
+export function fleetHasBarge(s: GameState): boolean {
+  return s.fleet.some((sh) => Boolean(sh.barge && s.day < sh.barge.eta));
+}
+
 export function loanOffer(s: GameState): { principal: number; due: number } {
   const ship = activeShip(s);
   const price = ship ? bunkerTonPrice(ship) : 620;
@@ -94,9 +162,12 @@ export function isStranded(s: GameState): boolean {
 function canAffordMinBunker(s: GameState, ship: Ship): boolean {
   if (ship.atSea) return false;
   const port = getPort(ship.port);
-  if (ship.fuel === "lng" && !port.lng) return false;
   const room = Math.max(0, ship.bunkerCap - ship.bunkers);
   if (room < 10) return true;
+  if (ship.fuel === "lng" && !port.lng) {
+    const q = bargeQuote(s, ship);
+    return Boolean(q && q.canPay);
+  }
   return s.cash >= 10 * bunkerTonPrice(ship);
 }
 
