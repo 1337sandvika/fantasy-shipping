@@ -28,13 +28,15 @@ import {
   remainingCeu,
   remainingHh,
   suggestedDestId,
+  bunkerSurveyValue,
+  tcOfferStem,
   usedHh,
   withUpgrade,
   bunkerPlanFor,
   bargeQuote,
   bargeLeft,
 } from "../fleet";
-import { daysLeft, money, qty, qty1, qty3 } from "../format";
+import { daysLeft, formatDate, money, qty, qty1, qty3 } from "../format";
 import { inEurope } from "../geo";
 import { seaRoute } from "../route";
 import { useGame } from "../store";
@@ -69,7 +71,7 @@ export function PortPanel() {
     scrollRef.current?.scrollTo({ top: 0 });
   }, [s.selectedPort]);
   return (
-    <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col border-t border-border bg-bg-elevated sm:border-l sm:border-t-0">
+    <div className="flex min-h-0 flex-1 flex-col border-t border-border bg-bg-elevated sm:border-l sm:border-t-0">
       <div className="border-b border-border px-3 py-2 sm:px-4 sm:py-3">
         {(() => {
           const ship = activeShip(s);
@@ -323,6 +325,8 @@ function CargoTab() {
   const duePay = holdHere.reduce((a, l) => a + lotPay(l), 0);
   const dueCeu = holdHere.reduce((a, l) => a + l.ceu, 0);
   const atSea = Boolean(ship?.atSea);
+  const hire = ship ? (s.charters ?? []).find((c) => c.shipId === ship.id && c.kind === "in") : null;
+  const hireOverdue = Boolean(hire && s.day + 1e-6 >= hire.untilDay);
   const leg = activeLeg(s);
   const pickedAway = Boolean(ship && !atSea && s.selectedPort !== ship.port);
   const topDest = pickedAway ? s.selectedPort : dest;
@@ -337,6 +341,7 @@ function CargoTab() {
       {!pickedAway && ship && lots.length && lots.filter((l) => !lotFitsDeck(ship, l)).length > lots.length * 0.5 ? (
         <p className="text-xs text-warn">{t("hint.tooSmall")}</p>
       ) : null}
+      {hireOverdue ? <p className="text-xs text-warn">{t("tc.overdueHint")}</p> : null}
       {atSea && leg ? (
         <div className="rounded-md border border-accent/30 bg-accent/10 p-3 text-sm">
           <p className="text-[10px] uppercase tracking-wider text-accent">{t("voyage.underway")}</p>
@@ -430,7 +435,7 @@ function CargoTab() {
                 return score(b) - score(a);
               })
               .map((l) => {
-                const can = ship && canLoadLot(ship, l) && ship.port === s.selectedPort;
+                const can = ship && canLoadLot(ship, l) && ship.port === s.selectedPort && !hireOverdue;
                 const hhBlock = Boolean(ship && remainingHh(ship) < (l.hh ?? 0));
                 const ceuBlock = Boolean(ship && remainingCeu(ship) < l.ceu);
                 const farBlock = Boolean(ship && !lotInRange(ship, l.dest));
@@ -451,7 +456,7 @@ function CargoTab() {
                         <p className="mt-0.5 font-mono text-sm tabular-nums text-accent">{money(lotPay(l))}</p>
                       </div>
                       <Button size="sm" disabled={!can} onClick={() => load(l.id)}>
-                        {hhBlock ? t("lot.noHh") : ceuBlock ? t("lot.noCeu") : farBlock ? t("lot.tooFar") : t("act.load")}
+                        {hireOverdue ? t("tc.overdueLoad") : hhBlock ? t("lot.noHh") : ceuBlock ? t("lot.noCeu") : farBlock ? t("lot.tooFar") : t("act.load")}
                       </Button>
                     </div>
                     <p className="mt-1 text-xs text-muted">
@@ -816,7 +821,7 @@ function YardTab() {
             return (
               <li key={h.id} className="overflow-hidden rounded-md border border-border bg-surface">
                 <img src={hullArt(h.id)} alt="" className="aspect-[16/7] w-full object-cover outline outline-1 -outline-offset-1 outline-white/10" />
-                <div className="flex min-w-0 items-start justify-between gap-2 px-3 py-3">
+                <div className="flex items-start justify-between gap-2 px-3 py-3">
                   <div>
                     <p className="font-medium">{h.name}</p>
                     <p className="text-xs text-muted">
@@ -846,7 +851,7 @@ function YardTab() {
             return (
               <li key={o.id} className={cn("overflow-hidden rounded-md border bg-surface", cheapId === o.id ? "border-accent/50" : "border-border")}>
                 <img src={hullArt(o.hullId)} alt="" className="aspect-[16/7] w-full object-cover outline outline-1 -outline-offset-1 outline-white/10" />
-                <div className="flex min-w-0 items-start justify-between gap-2 px-3 py-3">
+                <div className="flex items-start justify-between gap-2 px-3 py-3">
                   <div>
                     <p className="font-medium">M/V {o.name}</p>
                     <p className="text-xs text-muted">
@@ -901,16 +906,44 @@ function CharterTab() {
           {s.fleet.map((sh) => {
             const ch = charters.find((c) => c.shipId === sh.id);
             const canOut = !sh.atSea && sh.hold.length === 0 && !sh.charter;
-            const left = ch ? Math.max(0, Math.ceil(ch.untilDay - s.day)) : 0;
+            const left = ch ? ch.untilDay - s.day : 0;
+            const overdue = Boolean(ch && left <= 0);
             return (
               <li key={sh.id} className="overflow-hidden rounded-md border border-border bg-surface">
                 <img src={hullArt(sh.hullId)} alt="" className="aspect-[16/7] w-full object-cover outline outline-1 -outline-offset-1 outline-white/10" />
                 <div className="px-3 py-3">
                   <p className="text-sm font-medium">M/V {sh.name}</p>
                   {ch ? (
-                    <p className="mt-1 text-xs text-accent">
-                      {ch.kind === "in" ? t("tc.paying", { n: money(ch.rate), d: left }) : t("tc.earning", { n: money(ch.rate), d: left })}
-                    </p>
+                    <>
+                      <p className={cn("mt-1 text-xs", overdue ? "text-warn" : "text-accent")}>
+                        {overdue
+                          ? t(ch.kind === "in" ? "tc.overdueIn" : "tc.overdueOut", {
+                              n: money(ch.rate),
+                              d: qty1(Math.abs(left)),
+                              date: formatDate(ch.untilDay),
+                            })
+                          : t(ch.kind === "in" ? "tc.paying" : "tc.earning", {
+                              n: money(ch.rate),
+                              d: qty1(left),
+                              date: formatDate(ch.untilDay),
+                            })}
+                      </p>
+                      {ch.kind === "in" ? (
+                        <p className="mt-1 text-xs text-muted">
+                          {t("tc.survey", {
+                            on: qty(ch.bunkersOn ?? Math.round(sh.bunkerCap * 0.45)),
+                            off: qty(Math.round(sh.bunkers)),
+                            n: money(bunkerSurveyValue(sh)),
+                          })}
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-xs text-muted">
+                          {t("tc.surveyOut", {
+                            on: qty(ch.bunkersOn ?? Math.round(sh.bunkers)),
+                          })}
+                        </p>
+                      )}
+                    </>
                   ) : (
                     <p className="mt-1 text-xs text-muted">{t("yard.opex", { n: qty(sh.opex) })}</p>
                   )}
@@ -947,11 +980,12 @@ function CharterTab() {
           {offers.map((o) => {
             const h = hullById(o.hullId);
             const deposit = o.rate * 7;
-            const dear = s.cash < deposit;
+            const stem = tcOfferStem(s, o.hullId);
+            const dear = s.cash < deposit + stem.cost;
             return (
               <li key={o.id} className="overflow-hidden rounded-md border border-border bg-surface">
                 <img src={hullArt(o.hullId)} alt="" className="aspect-[16/7] w-full object-cover outline outline-1 -outline-offset-1 outline-white/10" />
-                <div className="flex min-w-0 items-start justify-between gap-2 px-3 py-3">
+                <div className="flex items-start justify-between gap-2 px-3 py-3">
                   <div>
                     <p className="font-medium">M/V {o.name}</p>
                     {o.owner ? <p className="text-[11px] text-subtle">{t("tc.owner", { n: o.owner })}</p> : null}
@@ -961,6 +995,7 @@ function CharterTab() {
                     </p>
                     <p className="mt-1 text-sm tabular-nums text-accent">{t("tc.rateDays", { n: money(o.rate), d: o.days })}</p>
                     <p className="text-xs text-subtle">{t("tc.deposit", { n: money(deposit) })}</p>
+                    <p className="text-xs text-subtle">{t("tc.stem", { tons: qty(stem.tons), n: money(stem.cost) })}</p>
                   </div>
                   <Button disabled={dear} onClick={() => hireIn(o.id)}>
                     {dear ? t("yard.tooDear") : t("tc.hire")}
@@ -976,11 +1011,41 @@ function CharterTab() {
   );
 }
 
+function honourLabel(h: { kind: string; brand?: string; n?: number }, t: (k: MsgKey, v?: Record<string, string | number>) => string) {
+  if (h.kind === "brand") return t("honour.brand", { brand: h.brand ?? "OEM" });
+  if (h.kind === "green") return t("honour.green");
+  if (h.kind === "streak") return t("honour.streak", { n: h.n ?? 0 });
+  if (h.kind === "ceu") return t("honour.ceu", { n: h.n ?? 0 });
+  if (h.kind === "ice") return t("honour.ice");
+  return t("honour.brand", { brand: "OEM" });
+}
+
 function LogTab() {
   const log = useGame((g) => g.state.log);
   const news = useGame((g) => g.state.news);
+  const honours = useGame((g) => g.state.honours) ?? [];
+  const t = useT();
   return (
     <div className="space-y-3">
+      {honours.length ? (
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-subtle">{t("honour.wall")}</p>
+          <ul className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {honours.map((h) => (
+              <li key={h.id} className="rounded-md border border-accent/30 bg-accent/10 px-3 py-2">
+                <p className="text-[10px] uppercase tracking-wider text-accent">{t("honour.plaque")}</p>
+                <p className="text-sm font-medium">{honourLabel(h, t)}</p>
+                <p className="text-xs text-muted">
+                  {formatDate(h.day)}
+                  {h.cash ? ` · ${money(h.cash)}` : ""}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <p className="text-xs text-subtle">{t("honour.empty")}</p>
+      )}
       <ul className="space-y-1 text-xs text-muted">
         {news.map((n) => (
           <li key={n}>· {n}</li>

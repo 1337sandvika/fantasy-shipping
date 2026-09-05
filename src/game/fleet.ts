@@ -47,9 +47,20 @@ export function fleetValue(s: GameState): number {
   return s.fleet.reduce((a, sh) => a + hullValue(sh), 0);
 }
 
-export function bunkerTonPrice(ship: Ship): number {
+export function bunkerTonPrice(ship: Pick<Ship, "fuel" | "port">): number {
   const port = getPort(ship.port);
   return ship.fuel === "lng" && port.lng ? port.bunker * 0.85 : port.bunker;
+}
+
+export function bunkerSurveyValue(ship: Pick<Ship, "fuel" | "port" | "bunkers">): number {
+  return Math.round(Math.max(0, ship.bunkers) * bunkerTonPrice(ship));
+}
+
+export function tcOfferStem(s: GameState, hullId: string): { tons: number; cost: number } {
+  const h = hullById(hullId);
+  const tons = Math.round((h?.bunkerCap ?? 480) * 0.45);
+  const price = bunkerTonPrice({ fuel: h?.fuel ?? "mgo", port: s.selectedPort });
+  return { tons, cost: Math.round(tons * price) };
 }
 
 export type BargeQuote = {

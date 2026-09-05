@@ -8,6 +8,7 @@ import {
   activeLeg,
   activeShip,
   bargeQuote,
+  bunkerSurveyValue,
   burnPerNm,
   canDrydock,
   canLoadLot,
@@ -94,13 +95,14 @@ function kindMult(kind) {
   if (kind === "vans") return 1.02;
   return 0.94;
 }
-/** Europe ~€300/CEU. Ocean dearer. Grey and H&H contracts pay up. */
-export function freightRate(nm, kind, contract, grey, jitter) {
+/** Europe ~€300/CEU. Ocean dearer. Grey, H&H, OEM preferred and contracts pay up. */
+export function freightRate(nm, kind, contract, grey, jitter, preferred) {
   const short = Math.min(Math.max(50, nm), 1400) * 0.17;
   const ocean = Math.max(0, nm - 1400) * 0.055;
   let rate = (175 + short + ocean) * kindMult(kind) * (0.9 + jitter * 0.2);
   if (contract) rate *= kind === "hh" ? 1.58 : 1.28;
   if (grey) rate *= 2.12;
+  if (preferred) rate *= 1.12;
   return Math.max(120, Math.round(rate));
 }
 export function refillLots(s) {
@@ -170,7 +172,7 @@ function refillLotsUnsafe(s) {
           hh = Math.min(hh, capHh);
           ceu = Math.min(ceu, capCeu);
         }
-        const contract = r() < 0.22;
+        const contract = r() < (isPreferred(s, odd.brand) ? 0.42 : 0.22);
         const grey = r() < greyP;
         lots.push({
           id: uid("lot"),
@@ -180,7 +182,7 @@ function refillLotsUnsafe(s) {
           kind: odd.kind,
           ceu,
           hh,
-          rate: freightRate(nm, odd.kind, contract, grey, r()),
+          rate: freightRate(nm, odd.kind, contract, grey, r(), isPreferred(s, odd.brand)),
           contract,
           deadline: s.day + (odd.kind === "hh" ? 8 : 6) + Math.floor(r() * 14),
           grey,
@@ -188,7 +190,6 @@ function refillLotsUnsafe(s) {
         });
         continue;
       }
-      const contract = r() < 0.3;
       const grey = r() < greyP;
       const hhRoll = r();
       const sizeRoll = mood === 4 ? r() * 0.55 : r();
@@ -233,12 +234,15 @@ function refillLotsUnsafe(s) {
         hh = Math.min(hh, capHh);
       }
       const recall = mood === 5 && kind === "cars" && r() < 0.38;
-      const rate = freightRate(nm, kind, contract, grey, r());
+      const pref = s.preferred ?? [];
+      const brand = recall ? "Viking Volt" : pref.length && r() < 0.4 ? pick(pref, r) : pick(BRANDS, r);
+      const contract = r() < (isPreferred(s, brand) ? 0.48 : 0.3);
+      const rate = freightRate(nm, kind, contract, grey, r(), isPreferred(s, brand));
       lots.push({
         id: uid("lot"),
         origin: p.id,
         dest,
-        brand: recall ? "Viking Volt" : pick(BRANDS, r),
+        brand,
         kind,
         ceu,
         hh,
@@ -401,6 +405,13 @@ export function idleState(): GameState {
     tab: "yard",
     endKind: null,
     milestones: [],
+    honours: [],
+    brandOnTime: {},
+    preferred: [],
+    onTimeStreak: 0,
+    lastGreenMonth: -1,
+    ceuMarks: [],
+    pendingEvent: null,
   };
 }
 export function freshState(company, director): GameState {
@@ -444,12 +455,106 @@ export function freshState(company, director): GameState {
     tab: "yard",
     endKind: null,
     milestones: [],
+    honours: [],
+    brandOnTime: {},
+    preferred: [],
+    onTimeStreak: 0,
+    lastGreenMonth: -1,
+    ceuMarks: [],
+    pendingEvent: null,
   };
   refillLots(s);
   refreshMarket(s, true);
   refreshTc(s, true);
   log(s, "log.open", { line, boss, port: portName(selectedPort) });
   return s;
+}
+function isPreferred(s, brand) {
+  return Boolean(brand) && (s.preferred ?? []).includes(brand);
+}
+
+function offerQueuedEvent(s, ev) {
+  if (s.phase === "event" && s.event) {
+    return { ...s, pendingEvent: s.pendingEvent ?? ev };
+  }
+  return { ...s, phase: "event", event: ev };
+}
+
+function popPendingEvent(s) {
+  if (!s.pendingEvent) return s;
+  return { ...s, phase: "event", event: s.pendingEvent, pendingEvent: null };
+}
+
+function pushHonour(s, honour) {
+  return { ...s, honours: [honour, ...(s.honours ?? [])].slice(0, 24) };
+}
+
+export function greenGrant(s) {
+  const hulls = (s.fleet ?? []).filter((sh) => sh.charter !== "in");
+  if (!hulls.length) return 0;
+  let grant = 0;
+  for (const sh of hulls) {
+    if (sh.fuel !== "lng") continue;
+    const opt = (sh.upgrades ?? []).includes("fuelopt") ? 1.14 : 1;
+    grant += sh.ceu * 14 * opt;
+  }
+  if (!grant) return 0;
+  if (hulls.every((sh) => sh.fuel === "lng")) grant *= 1.22;
+  return Math.round(grant);
+}
+
+function spawnPreferredLot(s, brand) {
+  const ship = activeShip(s);
+  if (!ship || ship.atSea) return s;
+  const port = ship.port;
+  const reach = fullTankRangeNm(ship);
+  const dests = PORTS.filter((p) => p.id !== port)
+    .map((p) => ({ id: p.id, nm: seaRoute(port, p.id).nm }))
+    .filter((d) => d.nm * 1.08 <= reach)
+    .sort((a, b) => a.nm - b.nm);
+  const dest = dests[Math.min(2, dests.length - 1)] ?? dests[0];
+  if (!dest) return s;
+  const hh = Math.min(ship.hhCap, 24 + Math.floor(Math.random() * 40));
+  const ceu = Math.min(ship.ceu, Math.max(220, Math.floor(ship.ceu * (0.45 + Math.random() * 0.35))));
+  const lot = {
+    id: uid("lot"),
+    origin: port,
+    dest: dest.id,
+    brand,
+    kind: hh > 8 ? "hh" : "cars",
+    ceu,
+    hh: hh > 8 ? hh : 0,
+    rate: freightRate(dest.nm, hh > 8 ? "hh" : "cars", true, false, 0.8, true),
+    contract: true,
+    deadline: s.day + 12,
+    grey: false,
+  };
+  const quay = s.lots[port] ?? [];
+  return { ...s, lots: { ...s.lots, [port]: [lot, ...quay].slice(0, 14) }, tab: "cargo" };
+}
+
+function maybeGreenGrant(s) {
+  const key = monthKey(s.day);
+  const last = s.lastGreenMonth ?? -1;
+  if (last < 0) return { ...s, lastGreenMonth: key };
+  if (key === last) return s;
+  const cash = greenGrant(s);
+  let next = { ...s, lastGreenMonth: key };
+  if (cash < 5000) return next;
+  if ((s.honours ?? []).some((h) => h.kind === "green")) {
+    next = { ...next, cash: next.cash + cash };
+    log(next, "log.award.green", { n: money(cash) });
+    return next;
+  }
+  const ev = {
+    id: "greengrant",
+    title: t("event.greengrant.title"),
+    body: t("event.greengrant.body", { n: money(cash) }),
+    a: { id: "bank", label: t("event.greengrant.bank"), hint: t("event.greengrant.bankHint", { n: money(cash) }) },
+    b: { id: "work", label: t("event.greengrant.work"), hint: t("event.greengrant.workHint") },
+    payload: { cash, kind: "green" },
+  };
+  return offerQueuedEvent(next, ev);
 }
 function maybeEnd(s) {
   const done = s.milestones ?? [];
@@ -611,6 +716,9 @@ export function takeTcIn(s, offerId) {
   ship.name = offer.name;
   ship.year = offer.year;
   ship.charter = "in";
+  const bunkersOn = Math.round(ship.bunkers);
+  const stem = bunkerSurveyValue(ship);
+  if (s.cash < deposit + stem) return s;
   const ch = {
     id: uid("ch"),
     kind: "in",
@@ -620,17 +728,18 @@ export function takeTcIn(s, offerId) {
     rate: offer.rate,
     untilDay: s.day + offer.days,
     deposit,
+    bunkersOn,
   };
   const next = {
     ...s,
-    cash: s.cash - deposit,
+    cash: s.cash - deposit - stem,
     fleet: [...s.fleet, ship],
     activeId: ship.id,
     charters: [...(s.charters ?? []), ch],
     tc: (s.tc ?? []).filter((o) => o.id !== offerId),
     tab: "cargo",
   };
-  log(next, "log.tcIn", { name: ship.name, rate: offer.rate, days: offer.days, deposit });
+  log(next, "log.tcIn", { name: ship.name, rate: offer.rate, days: offer.days, deposit, tons: bunkersOn, stem });
   refillLots(next);
   return next;
 }
@@ -639,6 +748,8 @@ export function charterOut(s, shipId, days = 30) {
   if (!ship || ship.atSea || ship.hold.length || ship.charter || ship.barge) return s;
   const rate = Math.round(ship.opex * (1.32 + ship.condition / 280));
   const n = days === 14 || days === 21 || days === 45 || days === 60 ? days : 30;
+  const bunkersOn = Math.round(ship.bunkers);
+  const stem = bunkerSurveyValue(ship);
   const ch = {
     id: uid("ch"),
     kind: "out",
@@ -648,13 +759,15 @@ export function charterOut(s, shipId, days = 30) {
     rate,
     untilDay: s.day + n,
     deposit: 0,
+    bunkersOn,
   };
   const next = {
     ...s,
+    cash: s.cash + stem,
     fleet: s.fleet.map((sh) => (sh.id === ship.id ? { ...sh, charter: "out" } : sh)),
     charters: [...(s.charters ?? []), ch],
   };
-  log(next, "log.tcOut", { name: ship.name, rate, days: n });
+  log(next, "log.tcOut", { name: ship.name, rate, days: n, tons: bunkersOn, stem });
   return next;
 }
 function tickCharters(s, days) {
@@ -662,11 +775,17 @@ function tickCharters(s, days) {
   if (!list.length) return s;
   let cash = s.cash;
   for (const c of list) {
-    cash += (c.kind === "out" ? c.rate : -c.rate) * days;
+    const holdOver = c.kind === "in" && s.day >= c.untilDay;
+    const rate = holdOver ? c.rate * 1.25 : c.rate;
+    cash += (c.kind === "out" ? c.rate : -rate) * days;
   }
   let next = { ...s, cash, charters: [...list] };
-  const due = next.charters.filter((c) => next.day >= c.untilDay);
-  for (const c of due) {
+  return finishDueCharters(next);
+}
+function finishDueCharters(s) {
+  let next = s;
+  for (const c of [...(next.charters ?? [])]) {
+    if (next.day + 1e-6 < c.untilDay) continue;
     next = redeliver(next, c.id);
     if (next.phase === "end") break;
   }
@@ -677,39 +796,56 @@ function redeliver(s, charterId) {
   if (!c) return s;
   const ship = s.fleet.find((x) => x.id === c.shipId);
   if (c.kind === "out") {
+    const on = c.bunkersOn ?? Math.round(ship?.bunkers ?? 0);
+    const frac = 0.52 + ((Math.floor(s.day * 9) + c.id.length * 13) % 28) / 100;
+    const cap = ship?.bunkerCap ?? Math.max(on, 400);
+    const off = Math.round(Math.max(40, Math.min(cap, on * frac)));
+    const stem = ship ? bunkerSurveyValue({ ...ship, bunkers: off }) : Math.round(off * 620);
     const next = {
       ...s,
+      cash: s.cash - stem,
       charters: s.charters.filter((x) => x.id !== c.id),
       fleet: s.fleet.map((sh) =>
         sh.id === c.shipId
-          ? { ...sh, charter: null, condition: Math.max(12, sh.condition - 3), atSea: false }
+          ? {
+              ...sh,
+              charter: null,
+              bunkers: off,
+              condition: Math.max(12, sh.condition - 3),
+              atSea: false,
+            }
           : sh,
       ),
     };
-    log(next, "log.offHire", { name: c.name, rate: c.rate });
+    log(next, "log.offHire", { name: c.name, rate: c.rate, on, tons: off, stem });
     return next;
   }
   if (!ship) {
     return { ...s, charters: s.charters.filter((x) => x.id !== c.id) };
   }
   if (ship.atSea || ship.hold.length) {
-    log(s, "log.offHireEmpty", { name: ship.name });
-    return {
+    if (c.notice) return s;
+    const next = {
       ...s,
-      charters: s.charters.map((x) => (x.id === c.id ? { ...x, untilDay: s.day + 1 } : x)),
+      charters: s.charters.map((x) => (x.id === c.id ? { ...x, notice: true } : x)),
     };
+    log(next, "log.offHireEmpty", { name: ship.name });
+    return next;
   }
   const refund = Math.round(c.deposit * Math.max(0.35, ship.condition / 100));
+  const on = c.bunkersOn ?? Math.round(ship.bunkerCap * 0.45);
+  const off = Math.round(ship.bunkers);
+  const stem = bunkerSurveyValue(ship);
   const fleet = s.fleet.filter((x) => x.id !== ship.id);
   const next = {
     ...s,
-    cash: s.cash + refund,
+    cash: s.cash + refund + stem,
     fleet,
     charters: s.charters.filter((x) => x.id !== c.id),
     activeId: s.activeId === ship.id ? (fleet[0]?.id ?? null) : s.activeId,
     tab: fleet.length ? s.tab : "charter",
   };
-  log(next, "log.redeliver", { name: ship.name, refund });
+  log(next, "log.redeliver", { name: ship.name, refund, on, tons: off, stem });
   return next;
 }
 export function setActive(s, id) {
@@ -735,6 +871,8 @@ export function renameShip(s, id, name) {
 export function loadLot(s, lotId) {
   const ship = activeShip(s);
   if (!ship || ship.atSea || ship.port !== s.selectedPort || ship.charter === "out") return s;
+  const hire = (s.charters ?? []).find((c) => c.shipId === ship.id && c.kind === "in");
+  if (hire && s.day + 1e-6 >= hire.untilDay) return s;
   const quay = s.lots[s.selectedPort] ?? [];
   const lot = quay.find((l) => l.id === lotId);
   if (!lot) return s;
@@ -776,28 +914,102 @@ export function dischargeHere(s) {
   let pay = 0;
   let ceu = 0;
   let rep = 0;
+  let streak = s.onTimeStreak ?? 0;
+  const brandOnTime = { ...(s.brandOnTime ?? {}) };
+  let lateAny = false;
+  const onTimeBrands = [];
   for (const l of here) {
     const late = Math.max(0, s.day - l.deadline);
     let p = Math.round(l.ceu * l.rate);
     if (l.contract && late > 0) p = Math.round(p * Math.max(0.2, 1 - late * 0.1));
     pay += p;
     ceu += l.ceu;
-    if (l.contract && late <= 0) rep += 2;
-    else if (l.contract && late > 0) rep -= 3;
-    else if (!l.grey) rep += 1;
+    if (l.contract && late <= 0) {
+      rep += 2;
+      streak += 1;
+      brandOnTime[l.brand] = (brandOnTime[l.brand] ?? 0) + 1;
+      onTimeBrands.push(l.brand);
+    } else if (l.contract && late > 0) {
+      rep -= 3;
+      lateAny = true;
+    } else if (!l.grey) rep += 1;
   }
+  if (lateAny) streak = 0;
   let next = {
     ...s,
     cash: s.cash + pay,
     deliveredCeu: s.deliveredCeu + ceu,
     reputation: Math.max(5, Math.min(100, s.reputation + rep)),
+    onTimeStreak: streak,
+    brandOnTime,
     fleet: s.fleet.map((sh) =>
       sh.id === ship.id ? { ...sh, hold: sh.hold.filter((l) => l.dest !== ship.port) } : sh,
     ),
   };
   log(next, "log.discharge", { ceu, port: portName(ship.port), pay });
   next = skimDebt(next, pay);
+  next = finishDueCharters(next);
+  next = maybeHonours(next, onTimeBrands, streak, s.deliveredCeu, s.deliveredCeu + ceu);
   return maybeEnd(next);
+}
+
+const CEU_MARKS = [4000, 12000, 30000, 60000];
+
+function maybeHonours(s, onTimeBrands, streak, ceuBefore, ceuAfter) {
+  let next = s;
+  let modal = null;
+  const preferred = [...(s.preferred ?? [])];
+  for (const brand of onTimeBrands) {
+    const n = next.brandOnTime?.[brand] ?? 0;
+    if (n >= 3 && n % 3 === 0 && !preferred.includes(brand)) {
+      preferred.push(brand);
+      const cash = 80000 + n * 6000;
+      next = { ...next, preferred };
+      modal = {
+        id: "brandaward",
+        title: t("event.brandaward.title", { brand }),
+        body: t("event.brandaward.body", { brand, n, cash: money(cash) }),
+        a: { id: "frame", label: t("event.brandaward.frame"), hint: t("event.brandaward.frameHint", { n: money(cash) }) },
+        b: { id: "work", label: t("event.brandaward.work"), hint: t("event.brandaward.workHint", { brand }) },
+        payload: { cash, brand, n, kind: "brand" },
+      };
+      break;
+    }
+  }
+  if (!modal && (streak === 5 || streak === 12)) {
+    const cash = streak === 5 ? 45000 : 140000;
+    modal = {
+      id: "streak",
+      title: t("event.streak.title", { n: streak }),
+      body: t("event.streak.body", { n: streak, cash: money(cash) }),
+      a: { id: "bank", label: t("event.streak.bank"), hint: t("event.streak.bankHint", { n: money(cash) }) },
+      b: { id: "work", label: t("event.streak.work"), hint: t("event.streak.workHint") },
+      payload: { cash, n: streak, kind: "streak" },
+    };
+  }
+  const marks = [...(s.ceuMarks ?? [])];
+  for (const mark of CEU_MARKS) {
+    if (ceuBefore < mark && ceuAfter >= mark && !marks.includes(mark)) {
+      marks.push(mark);
+      const cash = mark <= 4000 ? 28000 : mark <= 12000 ? 70000 : mark <= 30000 ? 160000 : 280000;
+      if (!modal) {
+        modal = {
+          id: "ceumark",
+          title: t("event.ceumark.title", { n: mark }),
+          body: t("event.ceumark.body", { n: mark, cash: money(cash) }),
+          a: { id: "bank", label: t("event.ceumark.bank"), hint: t("event.ceumark.bankHint", { n: money(cash) }) },
+          b: { id: "work", label: t("event.ceumark.work"), hint: t("event.ceumark.workHint") },
+          payload: { cash, n: mark, kind: "ceu" },
+        };
+      } else {
+        next = pushHonour({ ...next, cash: next.cash + cash, ceuMarks: marks }, { id: uid("aw"), kind: "ceu", day: next.day, n: mark, cash });
+        log(next, "log.award.ceu", { ceu: mark, n: money(cash) });
+      }
+    }
+  }
+  if (marks.length !== (s.ceuMarks ?? []).length) next = { ...next, ceuMarks: marks };
+  if (modal) return offerQueuedEvent(next, modal);
+  return next;
 }
 export function bunker(s, tons) {
   const ship = activeShip(s);
@@ -1075,14 +1287,14 @@ export function repayLoan(s) {
   return next;
 }
 function maybeEts(s) {
-  if (s.ets) return s;
+  if (s.ets) return maybeGreenGrant(s);
   const key = monthKey(s.day);
   if (s.lastEtsMonth < 0)
-    return {
+    return maybeGreenGrant({
       ...s,
       lastEtsMonth: key,
-    };
-  if (key === s.lastEtsMonth) return s;
+    });
+  if (key === s.lastEtsMonth) return maybeGreenGrant(s);
   const ships = s.fleet
     .map((sh) => ({
       name: sh.name,
@@ -1095,14 +1307,14 @@ function maybeEts(s) {
     etsAcc: 0,
   }));
   if (t < 20)
-    return {
+    return maybeGreenGrant({
       ...s,
       lastEtsMonth: key,
       etsAcc: 0,
       fleet,
-    };
+    });
   const price = 72 + Math.round((key % 11) * 1.8);
-  return {
+  return maybeGreenGrant({
     ...s,
     lastEtsMonth: key,
     etsAcc: 0,
@@ -1112,7 +1324,7 @@ function maybeEts(s) {
       price,
       ships,
     },
-  };
+  });
 }
 export function payEts(s) {
   if (!s.ets) return s;
@@ -1271,16 +1483,18 @@ function arriveShip(s, shipId) {
   refillLots(next);
   refreshMarket(next);
   refreshTc(next);
-  const grey = ship.hold.some((l) => l.grey);
+  next = finishDueCharters(next);
+  const docked = next.fleet.find((x) => x.id === shipId);
+  if (!docked) return maybeEnd(maybeEts(next));
+  const grey = docked.hold.some((l) => l.grey);
   if (CUSTOMS_HUBS.has(v.to) && (grey || next.heat >= 22) && Math.random() < (grey ? 0.55 : 0.32))
     return customsEvent({
       ...next,
       activeId: shipId,
       selectedPort: v.to,
     });
-  const docked = next.fleet.find((x) => x.id === shipId);
   if (
-    docked?.fuel === "lng" &&
+    docked.fuel === "lng" &&
     !getPort(v.to).lng &&
     !docked.barge &&
     docked.bunkers / Math.max(1, docked.bunkerCap) < 0.6
@@ -1555,9 +1769,17 @@ export function resolveEvent(s, choice) {
     if (choice === "wait") {
       bump(1.5);
       log(next, "log.ev.iceWait");
-    } else {
+    } else if (choice === "force") {
       dmg(ship?.ice ? 4 : 18);
       log(next, "log.ev.iceForce");
+      if (ship?.ice && !(next.honours ?? []).some((h) => h.kind === "ice")) {
+        const cash = 22000;
+        next = pushHonour(
+          { ...next, cash: next.cash + cash, reputation: Math.min(100, next.reputation + 2) },
+          { id: uid("aw"), kind: "ice", day: next.day, cash },
+        );
+        log(next, "log.award.ice", { n: money(cash) });
+      }
     }
   } else if (ev.id === "lash" || ev.id === "hhshift") {
     if (choice === "secure") {
@@ -1757,8 +1979,29 @@ export function resolveEvent(s, choice) {
       const hub = bargeQuote(s, ship)?.hubName;
       log(next, "log.bargeSkip", { hub: hub || "—" });
     }
+  } else if (ev.id === "brandaward" || ev.id === "greengrant" || ev.id === "streak" || ev.id === "ceumark") {
+    const cash = ev.payload?.cash ?? 0;
+    const brand = ev.payload?.brand;
+    const kind = ev.payload?.kind ?? "brand";
+    next = pushHonour(
+      {
+        ...next,
+        cash: next.cash + cash,
+        reputation: Math.min(100, next.reputation + (kind === "green" ? 2 : 4)),
+        preferred: brand && !(next.preferred ?? []).includes(brand) ? [...(next.preferred ?? []), brand] : next.preferred,
+      },
+      { id: uid("aw"), kind, day: next.day, brand, n: ev.payload?.n, cash },
+    );
+    if (ev.id === "brandaward") log(next, "log.award.brand", { brand: brand || "OEM", n: money(cash) });
+    else if (ev.id === "greengrant") log(next, "log.award.green", { n: money(cash) });
+    else if (ev.id === "streak") log(next, "log.award.streak", { streak: ev.payload?.n ?? 0, n: money(cash) });
+    else log(next, "log.award.ceu", { ceu: ev.payload?.n ?? 0, n: money(cash) });
+    if (choice === "work") {
+      if (brand) next = spawnPreferredLot(next, brand);
+      else if ((next.preferred ?? []).length) next = spawnPreferredLot(next, next.preferred[0]);
+    }
   }
-  return maybeEnd(next);
+  return maybeEnd(popPendingEvent(next));
 }
 function arrest(s) {
   const ship = activeShip(s);

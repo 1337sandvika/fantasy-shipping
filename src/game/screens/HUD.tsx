@@ -53,6 +53,14 @@ export function HUD() {
           {t("hud.heat")} {s.heat}
         </p>
       ) : null}
+      {(s.onTimeStreak ?? 0) >= 2 ? (
+        <p className="hidden tabular-nums text-accent sm:block">{t("hud.streak", { n: s.onTimeStreak })}</p>
+      ) : null}
+      {(s.preferred ?? []).length ? (
+        <p className="hidden max-w-40 truncate tabular-nums text-accent sm:block" title={(s.preferred ?? []).join(", ")}>
+          {t("hud.preferred", { n: s.preferred.length })}
+        </p>
+      ) : null}
       {s.fleet.length > 1 ? (
         <p className="hidden tabular-nums text-muted sm:block">
           {t("hud.fleet")} <span className="text-fg">{s.fleet.length}</span>

@@ -36,7 +36,12 @@ export function blip(freq = 220, dur = 0.08) {
   o.stop(c.currentTime + dur);
 }
 
-/** Two low harbour blasts — the barge has left. */
+/** Short major-third ding — a plaque just landed on the oak. */
+export function chime() {
+  blip(523, 0.1);
+  window.setTimeout(() => blip(659, 0.1), 80);
+  window.setTimeout(() => blip(784, 0.16), 160);
+}
 export function foghorn() {
   const c = ac();
   if (!c) return;

@@ -68,12 +68,24 @@ export type Voyage = {
   fullRevs: boolean;
 };
 
+export type HonourKind = "brand" | "green" | "streak" | "ceu" | "ice";
+
+export type Honour = {
+  id: string;
+  kind: HonourKind;
+  day: number;
+  brand?: string;
+  n?: number;
+  cash: number;
+};
+
 export type EventPick = {
   id: string;
   title: string;
   body: string;
   a: { id: string; label: string; hint: string };
   b: { id: string; label: string; hint: string };
+  payload?: { cash?: number; brand?: string; n?: number; kind?: HonourKind };
 };
 
 export type EtsShipLine = { name: string; t: number };
@@ -109,6 +121,10 @@ export type Charter = {
   rate: number;
   untilDay: number;
   deposit: number;
+  /** Bunkers remaining on board at on-hire survey, tonnes. */
+  bunkersOn?: number;
+  /** Logged once when the hire is due but the hull is still at sea or laden. */
+  notice?: boolean;
 };
 
 export type LogLine = { day: number; text: string };
@@ -147,6 +163,13 @@ export type GameState = {
   tab: Tab;
   endKind: EndKind | null;
   milestones: EndKind[];
+  honours: Honour[];
+  brandOnTime: Record<string, number>;
+  preferred: string[];
+  onTimeStreak: number;
+  lastGreenMonth: number;
+  ceuMarks: number[];
+  pendingEvent: EventPick | null;
 };
 
 export type UiState = {

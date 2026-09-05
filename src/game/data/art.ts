@@ -17,6 +17,10 @@ export function eventArt(id: string): string | null {
     union: "/game/events/union.jpg",
     cook: "/game/events/cook.jpg",
     lngbarge: "/game/events/fuel.jpg",
+    brandaward: "/game/events/award.jpg",
+    greengrant: "/game/events/grant.jpg",
+    streak: "/game/events/award.jpg",
+    ceumark: "/game/events/award.jpg",
   };
   const src = map[id];
   return src ? `${src}?v=3` : null;

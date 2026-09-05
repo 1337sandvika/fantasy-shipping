@@ -31,7 +31,7 @@ import {
   waitBarge,
 } from "./sim";
 import { persist, loadSave, hasSaveFlag, clearSave } from "./save";
-import { blip, foghorn } from "./audio";
+import { blip, chime, foghorn } from "./audio";
 import { activeShip, bunkerPlanFor, fleetHasBarge, fleetValue } from "./fleet";
 import { writePendingScore } from "./pending-score";
 
@@ -289,6 +289,7 @@ export const useGame = create<Store>((set, get) => ({
       set({ state });
     }
     if (state.phase === "end") stash(state);
+    if (["brandaward", "greengrant", "streak", "ceumark"].includes(prev.event?.id ?? "")) chime();
   },
   retire: () => {
     const state = endCareer(get().state, "retired");

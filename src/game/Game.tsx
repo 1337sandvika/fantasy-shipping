@@ -150,12 +150,14 @@ function StatusBanners() {
   const heatWarn = heat >= 22;
   const etsWarn = Boolean(s.ets) || (s.etsAcc ?? 0) > 80;
   const bargeWarn = bargeDays > 0;
-  if (!ddWarn && !heatWarn && !etsWarn && !bargeWarn) return null;
+  const tcOverdue = (s.charters ?? []).some((c) => c.kind === "in" && s.day + 1e-6 >= c.untilDay);
+  if (!ddWarn && !heatWarn && !etsWarn && !bargeWarn && !tcOverdue) return null;
   return (
     <div className="flex flex-wrap gap-2 border-b border-border bg-surface px-3 py-1 text-xs">
       {bargeWarn ? (
         <span className="text-warn">{t("hud.barge", { n: bargeDays.toFixed(1) })}</span>
       ) : null}
+      {tcOverdue ? <span className="text-warn">{t("tc.overdueLoad")}</span> : null}
       {ddWarn ? (
         <span className={left < 0 ? "text-danger" : "text-warn"}>{t("hud.drydock", { n: Math.round(left) })}</span>
       ) : null}
