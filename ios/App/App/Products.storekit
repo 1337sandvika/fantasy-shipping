@@ -1,0 +1,39 @@
+{
+  "identifier" : "FantasyShippingProducts",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "4.99",
+      "familyShareable" : false,
+      "internalID" : "A4E91C2B7D083F15E6B0A847",
+      "localizations" : [
+        {
+          "description" : "Unlock the full Fantasy Shipping career after the 14-day trial. One-time purchase.",
+          "displayName" : "Full Career Unlock",
+          "locale" : "en_US"
+        },
+        {
+          "description" : "Lås opp hele Fantasy Shipping-karrieren etter 14 dagers prøveperiode. Engangskjøp.",
+          "displayName" : "Full karriereopplåsing",
+          "locale" : "nb"
+        }
+      ],
+      "productID" : "com.fantasyshipping.app.full_unlock",
+      "referenceName" : "Full Unlock",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_storeKitError" : 0
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

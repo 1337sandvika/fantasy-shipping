@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { requirePlay, useIap } from "@/lib/iap";
 import { useT, type MsgKey } from "@/i18n";
 import { money, qty } from "../format";
 import { fleetValue } from "../fleet";
@@ -12,6 +13,7 @@ import { submitCareer } from "../score-api";
 import { foghorn } from "../audio";
 import { useGame } from "../store";
 import { AuthBar } from "./AuthBar";
+import { Paywall } from "./Paywall";
 
 const BROKE_QUOTES: MsgKey[] = [
   "end.broke.q0",
@@ -32,6 +34,7 @@ export function EndScreen() {
   const horned = useRef(false);
   const [post, setPost] = useState<"idle" | "sending" | "ok" | "fail">("idle");
   const t = useT();
+  const paywallOpen = useIap((s) => s.paywallOpen);
   const kind = s.endKind ?? "retired";
   const hard = kind === "broke";
   const nw = s.cash + fleetValue(s);
@@ -75,7 +78,7 @@ export function EndScreen() {
   }, [user, isPending, t]);
 
   return (
-    <div className="safe-pad flex min-h-dvh w-full min-w-0 max-w-full flex-col overflow-x-hidden bg-bg text-fg">
+    <div className="safe-pad relative flex min-h-dvh w-full min-w-0 max-w-full flex-col overflow-x-hidden bg-bg text-fg">
       {hard ? (
         <div className="relative isolate overflow-hidden border-b border-danger/40">
           <img
@@ -176,10 +179,10 @@ export function EndScreen() {
         </div>
 
         <div className="mt-6 flex max-w-md flex-col gap-2">
-          <Button onClick={() => start(s.company || s.captain, s.director || "")}>
+          <Button onClick={() => requirePlay(() => start(s.company || s.captain, s.director || ""))}>
             {t("end.again")}
           </Button>
-          <Button variant="secondary" onClick={resume}>
+          <Button variant="secondary" onClick={() => requirePlay(resume)}>
             {hard ? t("end.bail") : t("end.continue")}
           </Button>
           <div className="flex flex-wrap gap-2">
@@ -192,6 +195,7 @@ export function EndScreen() {
           </div>
         </div>
       </div>
+      {paywallOpen ? <Paywall /> : null}
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { cn } from "@/lib/utils";
 import { persist } from "../save";
 import { createLeague, joinLeague, listMyLeagues, type LeagueSummary } from "../score-api";
+import { purchase, restore, useIap } from "@/lib/iap";
 import { useGame } from "../store";
 import { OfficialList } from "./OfficialTournaments";
 
@@ -144,6 +145,8 @@ export function SettingsSheet() {
             )}
           </section>
 
+          <IapBlock />
+
           <TourneyBlock signedIn={Boolean(user)} pending={isPending} />
 
           <section className="mt-6">
@@ -200,6 +203,44 @@ export function SettingsSheet() {
         </footer>
       </div>
     </div>
+  );
+}
+
+function IapBlock() {
+  const t = useT();
+  const { gating, ready, isUnlocked, trialActive, trialDaysLeft, busy, error, note, priceString } = useIap();
+  if (!gating) return null;
+  const priceLabel = priceString ? t("iap.unlock", { price: priceString }) : t("iap.unlockFallback");
+  return (
+    <section className="mt-6">
+      <p className="text-xs font-medium uppercase tracking-wider text-subtle">{t("iap.settings")}</p>
+      {!ready ? <div className="mt-2 h-11 animate-pulse rounded-md bg-surface" /> : null}
+      {ready && isUnlocked ? <p className="mt-2 text-sm text-ok">{t("iap.owned")}</p> : null}
+      {ready && !isUnlocked && trialActive ? (
+        <p className="mt-2 text-sm text-muted">
+          {trialDaysLeft <= 1 ? t("iap.trialLeftOne") : t("iap.trialLeft", { n: trialDaysLeft })}
+        </p>
+      ) : null}
+      {ready && !isUnlocked && !trialActive ? <p className="mt-2 text-sm text-warn">{t("iap.trialExpired")}</p> : null}
+      {note === "restored" ? <p className="mt-2 text-sm text-ok">{t("iap.restored")}</p> : null}
+      {error === "none" ? <p className="mt-2 text-sm text-warn">{t("iap.none")}</p> : null}
+      {error === "fail" ? <p className="mt-2 text-sm text-danger">{t("iap.fail")}</p> : null}
+      <div className="mt-2 grid gap-1">
+        {ready && !isUnlocked ? (
+          <Button disabled={busy} onClick={() => void purchase()} className="w-full">
+            {busy ? t("iap.buying") : priceLabel}
+          </Button>
+        ) : null}
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void restore()}
+          className="flex min-h-11 items-center justify-center rounded-md border border-border px-3 text-sm text-muted hover:text-fg disabled:opacity-50"
+        >
+          {busy ? t("iap.restoring") : t("iap.restore")}
+        </button>
+      </div>
+    </section>
   );
 }
 

@@ -11,7 +11,9 @@ import { HoldCard } from "./screens/HoldCard";
 import { HUD } from "./screens/HUD";
 import { PortPanel } from "./screens/PortPanel";
 import { SettingsSheet } from "./screens/SettingsSheet";
+import { Paywall } from "./screens/Paywall";
 import { TitleScreen } from "./screens/TitleScreen";
+import { hydrateIap, iapCanPlay, refreshTrialClock, useIap } from "@/lib/iap";
 import { hydrateSaveFlag, useGame } from "./store";
 import { setMuted } from "./audio";
 import { activeShip, drydockLeft } from "./fleet";
@@ -20,16 +22,12 @@ const DAYS_PER_MIN = 12;
 
 export function Game() {
   const phase = useGame((s) => s.state.phase);
-  const settings = useGame((s) => s.ui.settings);
   const muted = useGame((s) => s.ui.muted);
-  const mapHud = useGame((s) => s.ui.mapHud) !== false;
-  const setSettings = useGame((s) => s.setSettings);
-  const setMapHud = useGame((s) => s.setMapHud);
   const tick = useGame((s) => s.tick);
-  const t = useT();
 
   useEffect(() => {
     hydrateSaveFlag();
+    void hydrateIap();
     (window as unknown as { __game?: typeof useGame }).__game = useGame;
   }, []);
 
@@ -48,7 +46,8 @@ export function Game() {
         g.state.phase !== "event" &&
         g.state.phase !== "title" &&
         g.state.phase !== "end" &&
-        !g.ui.settings
+        !g.ui.settings &&
+        iapCanPlay()
       ) {
         const tempo = g.ui.tempo;
         if (tempo > 0 && g.state.legs.length) {
@@ -61,6 +60,7 @@ export function Game() {
     const onHide = () => {
       const st = useGame.getState().state;
       if (st.phase !== "title") persist(st);
+      refreshTrialClock();
     };
     document.addEventListener("visibilitychange", onHide);
     window.addEventListener("pagehide", onHide);
@@ -73,6 +73,20 @@ export function Game() {
 
   if (phase === "title") return <TitleScreen />;
   if (phase === "end") return <EndScreen />;
+
+  return <CareerShell />;
+}
+
+function CareerShell() {
+  const phase = useGame((s) => s.state.phase);
+  const settings = useGame((s) => s.ui.settings);
+  const mapHud = useGame((s) => s.ui.mapHud) !== false;
+  const setSettings = useGame((s) => s.setSettings);
+  const setMapHud = useGame((s) => s.setMapHud);
+  const toTitle = useGame((s) => s.toTitle);
+  const t = useT();
+  const locked = useIap((s) => s.gating && s.ready && !s.canPlay);
+  const paywallOpen = useIap((s) => s.paywallOpen);
 
   return (
     <div className="safe-pad relative flex h-dvh min-h-0 w-full min-w-0 max-w-full flex-col overflow-x-hidden overflow-y-hidden bg-bg text-fg">
@@ -119,6 +133,7 @@ export function Game() {
       {phase === "event" ? <EventModal /> : null}
       <EtsModal />
       {settings ? <SettingsSheet /> : null}
+      {locked || paywallOpen ? <Paywall blocking onLeaveToTitle={toTitle} /> : null}
     </div>
   );
 }
