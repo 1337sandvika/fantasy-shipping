@@ -69,6 +69,7 @@ export function HoldCard({ variant }: { variant: "bar" | "panel" }) {
                 <li key={l.id} className="flex items-baseline justify-between gap-2">
                   <span className="min-w-0 truncate">
                     {l.brand} · {kindLabel(l, t)}{" "}
+                    {l.grey ? <span className="text-warn">{t("lot.grey")} · </span> : null}
                     <span className="text-accent">{t("hold.for", { port: portName(l.dest) })}</span>
                   </span>
                   <span className="shrink-0 tabular-nums text-muted">

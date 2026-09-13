@@ -76,6 +76,22 @@ export const ODD: OddLot[] = [
 /** Extra flavour notes that can stick to an otherwise ordinary lot. */
 export const LOT_FLAVOUR = ["wet", "sticker", "radio", "spare", "rice"];
 
+/** Undeclared parcels. note is lot.note.* — keep it theatrical, not grim. */
+export const GREY_NOTES = [
+  "ferrari",
+  "jeeps",
+  "cats",
+  "cashbox",
+  "cigs",
+  "dualuse",
+  "art",
+  "clocks",
+  "phones",
+  "horses",
+  "cigars",
+  "parts",
+];
+
 export const SHIP_NAMES = [
   "Rustproof",
   "Clipboard",

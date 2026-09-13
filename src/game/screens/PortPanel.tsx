@@ -401,6 +401,7 @@ function CargoTab() {
                   {l.hh > 0 ? ` · ${t("lot.hh", { n: qty(l.hh) })}` : ""}
                   {l.grey ? ` · ${t("lot.grey")}` : ""}
                   {l.contract ? ` · ${t("lot.contract")}` : ""}
+                  {l.grey && l.note ? ` · ${maybeT(`lot.note.${l.note}`)}` : ""}
                 </span>
                 <span className="shrink-0 font-mono tabular-nums text-muted">
                   {qty(l.ceu)} · <span className="text-accent">{money(lotPay(l))}</span>
@@ -426,12 +427,13 @@ function CargoTab() {
       {!atSea ? (
         <div>
           <p className="text-[10px] uppercase tracking-wider text-subtle">{t("tab.cargo")}</p>
+          <p className="mt-1 text-xs text-muted">{t("cargo.greyIntro")}</p>
           <ul className="mt-2 space-y-2">
             {[...lots]
               .sort((a, b) => {
                 const loadable = (l: Lot) => (ship ? canLoadLot(ship, l) : false);
                 const score = (l: Lot) =>
-                  (loadable(l) ? 20 : 0) + (l.grey ? 3 : 0) + (l.kind === "hh" ? 2 : 0) + (l.contract ? 1 : 0) + l.rate / 2e3;
+                  (l.grey ? 12 : 0) + (loadable(l) ? 20 : 0) + (l.kind === "hh" ? 2 : 0) + (l.contract ? 1 : 0) + l.rate / 2e3;
                 return score(b) - score(a);
               })
               .map((l) => {
@@ -451,6 +453,7 @@ function CargoTab() {
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <p className="text-sm font-medium">
+                          {l.grey ? <span className="mr-1.5 text-[10px] uppercase tracking-wider text-warn">{t("lot.grey")} ·</span> : null}
                           {l.brand} · {lotKind(l, t)} · {qty(l.ceu)} CEU
                         </p>
                         <p className="mt-0.5 font-mono text-sm tabular-nums text-accent">{money(lotPay(l))}</p>
@@ -468,8 +471,12 @@ function CargoTab() {
                       /CEU
                       {l.hh > 0 ? ` · ${t("lot.hh", { n: qty(l.hh) })}` : ""}
                       {l.contract ? ` · ${t("lot.contract")} · ${daysLeft(l.deadline, s.day)}` : ""}
-                      {l.grey ? ` · ${t("lot.greyPay")}` : ""}
                     </p>
+                    {l.grey ? (
+                      <p className="mt-1 text-[11px] text-warn">
+                        {t("lot.greyRisk", { heat: 14 + Math.round(l.ceu / 90), pay: "2.1×" })}
+                      </p>
+                    ) : null}
                     {l.note ? <p className="mt-1 text-[11px] italic text-subtle">{maybeT(`lot.note.${l.note}`)}</p> : null}
                     {ship && !can && (hhBlock || ceuBlock || farBlock) ? (
                       <p className="mt-1 text-[11px] text-danger">
@@ -1024,9 +1031,17 @@ function LogTab() {
   const log = useGame((g) => g.state.log);
   const news = useGame((g) => g.state.news);
   const honours = useGame((g) => g.state.honours) ?? [];
+  const heat = useGame((g) => g.state.heat) ?? 0;
+  const fines = useGame((g) => g.state.fines) ?? 0;
+  const ship = useGame((g) => activeShip(g.state));
+  const greyCeu = ship?.hold.filter((l) => l.grey).reduce((a, l) => a + l.ceu, 0) ?? 0;
   const t = useT();
   return (
     <div className="space-y-3">
+      <div className="rounded-md border border-warn/30 bg-warn/10 px-3 py-2">
+        <p className="text-[10px] uppercase tracking-wider text-warn">{t("heat.title")}</p>
+        <p className="mt-1 text-sm">{t("heat.body", { n: heat, ceu: greyCeu, fines: money(fines) })}</p>
+      </div>
       {honours.length ? (
         <div>
           <p className="text-[10px] uppercase tracking-wider text-subtle">{t("honour.wall")}</p>

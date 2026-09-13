@@ -24,6 +24,8 @@ export function SettingsSheet() {
   const toTitle = useGame((s) => s.toTitle);
   const muted = useGame((s) => s.ui.muted);
   const toggleMute = useGame((s) => s.toggleMute);
+  const autoPilot = useGame((s) => s.ui.autoPilot);
+  const setAutoPilot = useGame((s) => s.setAutoPilot);
   const locale = useLocale();
   const { user, isPending } = useCurrentUserState();
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -108,6 +110,16 @@ export function SettingsSheet() {
                 {muted ? t("set.off") : t("set.on")}
               </span>
             </button>
+            <button
+              type="button"
+              onClick={() => setAutoPilot(!autoPilot)}
+              aria-pressed={autoPilot}
+              className="mt-2 flex min-h-11 w-full items-center justify-between rounded-md border border-border bg-surface px-3 text-sm"
+            >
+              <span>{t("set.autoPilot")}</span>
+              <span className="text-xs text-muted">{autoPilot ? t("set.on") : t("set.off")}</span>
+            </button>
+            <p className="mt-1 text-xs text-subtle">{t("set.autoPilotHint")}</p>
           </section>
 
           <section className="mt-6">

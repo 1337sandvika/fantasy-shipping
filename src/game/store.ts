@@ -16,7 +16,6 @@ import {
   fitUpgrade,
   waitDay,
   payEts,
-  setCourse,
   tickVoyage,
   resolveEvent,
   sailCheck,
@@ -29,6 +28,10 @@ import {
   charterOut,
   offerBarge,
   waitBarge,
+  beginDepart,
+  hirePilot,
+  finishHelm,
+  scrapeHelm,
 } from "./sim";
 import { persist, loadSave, hasSaveFlag, clearSave } from "./save";
 import { blip, chime, foghorn } from "./audio";
@@ -77,7 +80,20 @@ type Store = {
   fileBankruptcy: () => void;
   markCheckpoint: () => void;
   tick: (dtDays: number) => void;
+  hirePilot: () => void;
+  finishHelm: () => void;
+  scrapeHelm: () => void;
+  setAutoPilot: (v: boolean) => void;
 };
+
+const AUTO_KEY = "poc-autopilot";
+function readAutoPilot(): boolean {
+  try {
+    return localStorage.getItem(AUTO_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 const boot = (() => {
   try {
@@ -91,7 +107,7 @@ const boot = (() => {
 
 export const useGame = create<Store>((set, get) => ({
   state: boot.state,
-  ui: { muted: false, about: false, settings: false, tempo: 1, lastTempo: 1, follow: true, atlas: "world", viewSeq: 0, mapHud: true },
+  ui: { muted: false, about: false, settings: false, tempo: 1, lastTempo: 1, follow: true, atlas: "world", viewSeq: 0, mapHud: true, autoPilot: readAutoPilot() },
   hasSave: boot.hasSave,
   start: (company, director) => {
     try {
@@ -269,13 +285,52 @@ export const useGame = create<Store>((set, get) => ({
     const err = sailCheck(state, dest);
     if (err && err !== "sail.bunkers") return err;
     if (err === "sail.bunkers") return plan.noLng ? "bunker.lngNone" : "bunker.noCash";
-    state = setCourse(state, dest, full);
-    persist(state);
     const ui = get().ui;
-    const tempo = ui.tempo === 0 ? ui.lastTempo || 4 : ui.tempo;
-    set({ state, ui: { ...ui, tempo } });
+    if (ui.autoPilot) {
+      const withHelm = beginDepart(state, dest, full);
+      const hired = hirePilot(withHelm);
+      if (!hired.helm) {
+        persist(hired);
+        const tempo = ui.tempo === 0 ? ui.lastTempo || 4 : ui.tempo;
+        set({ state: hired, ui: { ...ui, tempo } });
+        blip(180);
+        return null;
+      }
+    }
+    state = beginDepart(state, dest, full);
+    persist(state);
+    set({ state, ui: { ...ui, tempo: 0 } });
     blip(180);
     return null;
+  },
+  hirePilot: () => {
+    const state = hirePilot(get().state);
+    persist(state);
+    const ui = get().ui;
+    const tempo = state.helm ? 0 : ui.lastTempo || 4;
+    set({ state, ui: { ...ui, tempo: state.helm ? 0 : tempo } });
+    if (!state.helm) blip(200);
+  },
+  finishHelm: () => {
+    const state = finishHelm(get().state);
+    persist(state);
+    const ui = get().ui;
+    const tempo = ui.lastTempo || 4;
+    set({ state, ui: { ...ui, tempo: state.legs.length ? tempo : 0 } });
+    blip(240);
+  },
+  scrapeHelm: () => {
+    const state = scrapeHelm(get().state);
+    persist(state);
+    set({ state });
+  },
+  setAutoPilot: (v) => {
+    try {
+      localStorage.setItem(AUTO_KEY, v ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+    set({ ui: { ...get().ui, autoPilot: v } });
   },
   choose: (choice) => {
     const prev = get().state;
@@ -321,12 +376,28 @@ export const useGame = create<Store>((set, get) => ({
   tick: (dtDays) => {
     const st = get().state;
     if (st.phase === "event" || st.phase === "end" || st.phase === "title") return;
-    if (!st.legs.length) return;
+    if (st.helm) return;
+    if (!st.legs.length && !fleetHasBarge(st)) return;
     try {
       const n0 = st.legs.length;
       const barge0 = fleetHasBarge(st);
-      const state = tickVoyage(st, dtDays);
+      let state = tickVoyage(st, dtDays);
       const ui = get().ui;
+      if (state.helm && !st.helm) {
+        const last = ui.tempo === 0 ? ui.lastTempo : ui.tempo;
+        if (ui.autoPilot) {
+          const hired = hirePilot(state);
+          if (!hired.helm) {
+            persist(hired);
+            set({ state: hired, ui: { ...ui, tempo: 0, lastTempo: last } });
+            return;
+          }
+          state = hired;
+        }
+        persist(state);
+        set({ state, ui: { ...ui, tempo: 0, lastTempo: last } });
+        return;
+      }
       const bargeDone = barge0 && !fleetHasBarge(state);
       if (state.legs.length < n0 || bargeDone) {
         const last = ui.tempo === 0 ? ui.lastTempo : ui.tempo;

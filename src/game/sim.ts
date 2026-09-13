@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { BRANDS, ODD, LOT_FLAVOUR, SHIP_NAMES, TC_DESKS } from "./data/cargo";
+import { BRANDS, ODD, LOT_FLAVOUR, GREY_NOTES, SHIP_NAMES, TC_DESKS } from "./data/cargo";
 import { CUSTOMS_HUBS, PORTS, etsShare, getPort, portName } from "./data/ports";
 import { HULLS, UPGRADES, hullById } from "./data/ships";
 import { isWinter, monthKey, money } from "./format";
@@ -25,6 +25,7 @@ import {
 } from "./fleet";
 import { seaRoute } from "./route";
 import { t, type MsgKey } from "@/i18n";
+import { pilotFee } from "./helm";
 
 let seq = 1;
 const uid = (p: string) => `${p}-${seq++}-${Math.random().toString(36).slice(2, 6)}`;
@@ -124,7 +125,7 @@ function refillLotsUnsafe(s) {
   const r = rng(((s.seed >>> 0) || 1) + s.day * 997 + 13 + (s.voyages || 0) * 41 + Math.floor(rSalt(s) * 97));
   const mood = careerMood(s.seed);
   const oddP = mood === 0 ? 0.44 : s.day === 0 ? 0.3 : 0.2;
-  const greyP = mood === 2 ? 0.4 : 0.16;
+  const greyP = mood === 2 ? 0.5 : 0.24;
   const hhCut = mood === 1 ? 0.42 : 0.2;
   const reach = fleetReachNm(s);
   const capCeu = Math.max(HULLS[0].ceu, ...s.fleet.filter((sh) => sh.charter !== "out").map((sh) => sh.ceu));
@@ -186,7 +187,7 @@ function refillLotsUnsafe(s) {
           contract,
           deadline: s.day + (odd.kind === "hh" ? 8 : 6) + Math.floor(r() * 14),
           grey,
-          note: odd.note,
+          note: grey ? pick(GREY_NOTES, r) : odd.note,
         });
         continue;
       }
@@ -250,7 +251,7 @@ function refillLotsUnsafe(s) {
         contract,
         deadline: s.day + (kind === "hh" ? 8 : 6) + Math.floor(r() * 14),
         grey,
-        note: recall ? "recall" : r() < 0.14 ? pick(LOT_FLAVOUR, r) : undefined,
+        note: grey ? pick(GREY_NOTES, r) : recall ? "recall" : r() < 0.14 ? pick(LOT_FLAVOUR, r) : undefined,
       });
     }
     s.lots[p.id] = shuffle(lots, r);
@@ -412,6 +413,7 @@ export function idleState(): GameState {
     lastGreenMonth: -1,
     ceuMarks: [],
     pendingEvent: null,
+    helm: null,
   };
 }
 export function freshState(company, director): GameState {
@@ -462,6 +464,7 @@ export function freshState(company, director): GameState {
     lastGreenMonth: -1,
     ceuMarks: [],
     pendingEvent: null,
+    helm: null,
   };
   refillLots(s);
   refreshMarket(s, true);
@@ -879,7 +882,7 @@ export function loadLot(s, lotId) {
   if (!canLoadLot(ship, lot)) return s;
   const next = {
     ...s,
-    heat: s.heat + (lot.grey ? 18 : 0),
+    heat: s.heat + (lot.grey ? 14 + Math.round(lot.ceu / 90) : 0),
     lots: {
       ...s.lots,
       [s.selectedPort]: quay.filter((l) => l.id !== lotId),
@@ -902,7 +905,8 @@ export function loadLot(s, lotId) {
       (lot.kind === "hh" ? t("log.loadHh") : "") +
       (lot.contract ? t("log.loadContract", { day: lot.deadline }) : "") +
       (lot.grey ? t("log.loadGrey") : "") +
-      (lot.note ? t("log.loadOdd") : ""),
+      (lot.grey && lot.note ? t("log.loadGreyNote") : "") +
+      (lot.note && !lot.grey ? t("log.loadOdd") : ""),
   });
   return next;
 }
@@ -1392,6 +1396,54 @@ export function setCourse(s, dest, fullRevs = false) {
   log(next, "log.sail", { name: ship.name, from: portName(ship.port), to: portName(dest), nm: Math.round(nm), eta: days.toFixed(1) });
   return next;
 }
+export function beginDepart(s, dest, full) {
+  const ship = activeShip(s);
+  if (!ship) return s;
+  return {
+    ...s,
+    helm: { kind: "depart", shipId: ship.id, port: ship.port, dest, full: Boolean(full) },
+  };
+}
+export function hirePilot(s) {
+  const job = s.helm;
+  const ship = s.fleet.find((x) => x.id === job?.shipId) ?? activeShip(s);
+  if (!job || !ship) return s;
+  const fee = Math.round(pilotFee(ship, job.port, job.kind, s.heat) * (job.bump ? 1.35 : 1));
+  if (s.cash < fee) return s;
+  const next = { ...s, cash: s.cash - fee, helm: null };
+  log(next, "log.helm.pilot", { name: ship.name, port: portName(job.port), n: fee });
+  if (job.kind === "depart" && job.dest) return setCourse(next, job.dest, job.full);
+  return arriveShip(next, job.shipId);
+}
+export function finishHelm(s) {
+  const job = s.helm;
+  if (!job) return s;
+  const next = { ...s, helm: null };
+  if (job.kind === "depart") log(next, "log.helm.cleared", { port: portName(job.port) });
+  else log(next, "log.helm.docked", { port: portName(job.port) });
+  if (job.kind === "depart" && job.dest) return setCourse(next, job.dest, job.full);
+  return arriveShip(next, job.shipId);
+}
+export function scrapeHelm(s) {
+  const job = s.helm;
+  if (!job) return s;
+  const cost = 9000 + Math.floor(Math.random() * 12000);
+  const next = {
+    ...s,
+    cash: s.cash - cost,
+    helm: { ...job, bump: true },
+    fleet: s.fleet.map((sh) =>
+      sh.id === job.shipId
+        ? {
+            ...sh,
+            condition: Math.max(22, sh.condition - (5 + Math.floor(Math.random() * 5))),
+          }
+        : sh,
+    ),
+  };
+  log(next, "log.helm.scrape", { port: portName(job.port), n: cost });
+  return next;
+}
 function advanceLegs(s, dtDays, events) {
   let next = s;
   for (const id of s.legs.map((v) => v.shipId)) {
@@ -1435,7 +1487,19 @@ function tickOne(s, shipId, dtDays, events) {
     ),
     fleet,
   };
-  if (travelled >= v.nm - 0.5) return arriveShip(next, shipId);
+  if (travelled >= v.nm - 0.5) {
+    if (s.helm) {
+      return {
+        ...next,
+        legs: next.legs.map((x) => (x.shipId === shipId ? { ...v, travelled: Math.min(travelled, v.nm - 0.55) } : x)),
+      };
+    }
+    return {
+      ...next,
+      helm: { kind: "arrive", shipId, port: v.to },
+      legs: next.legs.map((x) => (x.shipId === shipId ? { ...v, travelled: v.nm - 0.55 } : x)),
+    };
+  }
   if (events && Math.random() < dtDays * 0.16)
     return pickEvent({
       ...next,
@@ -1508,6 +1572,45 @@ function arriveShip(s, shipId) {
   }
   return maybeEnd(maybeEts(next));
 }
+function greyDestFor(s, ship) {
+  const loaded = ship.hold.find((l) => l.dest !== ship.port)?.dest;
+  if (loaded) return loaded;
+  const reach = fullTankRangeNm(ship);
+  const opts = PORTS.filter((p) => p.id !== ship.port && seaRoute(ship.port, p.id).nm * 1.08 <= reach + 40);
+  if (!opts.length) return ship.port === "zeebrugge" ? "baltimore" : "zeebrugge";
+  return opts[Math.floor(Math.random() * Math.min(6, opts.length))].id;
+}
+function takeGreyDeal(s, ship, hot) {
+  const dest = hot ? (activeLeg(s)?.to ?? greyDestFor(s, ship)) : greyDestFor(s, ship);
+  const wantHh = remainingHh(ship) >= 24 && Math.random() < 0.45;
+  const extra = {
+    id: uid("lot"),
+    origin: ship.port,
+    dest,
+    brand: pick(BRANDS, Math.random),
+    kind: wantHh ? "hh" : Math.random() < 0.4 ? "vans" : "cars",
+    ceu: wantHh ? 140 + Math.floor(Math.random() * 200) : 90 + Math.floor(Math.random() * 160),
+    hh: wantHh ? 28 + Math.floor(Math.random() * 40) : 0,
+    rate: wantHh ? 920 + Math.floor(Math.random() * 340) : 480 + Math.floor(Math.random() * 260),
+    contract: false,
+    deadline: s.day + 8 + Math.floor(Math.random() * 6),
+    grey: true,
+    note: pick(GREY_NOTES, Math.random),
+  };
+  if (remainingCeu(ship) >= extra.ceu && remainingHh(ship) >= extra.hh) {
+    const next = {
+      ...s,
+      heat: s.heat + (hot ? 28 : 20),
+      fleet: s.fleet.map((sh) => (sh.id === ship.id ? { ...sh, hold: [...sh.hold, extra] } : sh)),
+    };
+    log(next, "log.ev.greyTake");
+    return next;
+  }
+  const cash = 90e3 + Math.floor(Math.random() * 70e3);
+  const next = { ...s, cash: s.cash + cash, heat: s.heat + 9 };
+  log(next, "log.ev.greyCash");
+  return next;
+}
 export function customsEvent(s) {
   const grey = activeShip(s)?.hold.some((l) => l.grey) ?? false;
   return {
@@ -1532,8 +1635,17 @@ export function customsEvent(s) {
 }
 function pickQuayEvent(s) {
   const r = Math.random();
+  const heat = s.heat ?? 0;
   let ev;
-  if (r < 0.32)
+  if (r < 0.28)
+    ev = {
+      id: "nightdeal",
+      title: "event.nightdeal.title",
+      body: "event.nightdeal.body",
+      a: { id: "take", label: "event.nightdeal.take", hint: "event.nightdeal.takeHint" },
+      b: { id: "pass", label: "event.nightdeal.pass", hint: "event.nightdeal.passHint" },
+    };
+  else if (r < 0.5)
     ev = {
       id: "radio",
       title: "event.radio.title",
@@ -1541,7 +1653,15 @@ function pickQuayEvent(s) {
       a: { id: "take", label: "event.radio.take", hint: "event.radio.takeHint" },
       b: { id: "pass", label: "event.radio.pass", hint: "event.radio.passHint" },
     };
-  else if (r < 0.52)
+  else if (heat >= 28 && r < 0.66)
+    ev = {
+      id: "snitch",
+      title: "event.snitch.title",
+      body: "event.snitch.body",
+      a: { id: "pay", label: "event.snitch.pay", hint: "event.snitch.payHint" },
+      b: { id: "stare", label: "event.snitch.stare", hint: "event.snitch.stareHint" },
+    };
+  else if (r < 0.78)
     ev = {
       id: "hhdeal",
       title: "event.hhdeal.title",
@@ -1549,7 +1669,7 @@ function pickQuayEvent(s) {
       a: { id: "take", label: "event.hhdeal.take", hint: "event.hhdeal.takeHint" },
       b: { id: "pass", label: "event.hhdeal.pass", hint: "event.hhdeal.passHint" },
     };
-  else if (r < 0.74)
+  else if (r < 0.9)
     ev = {
       id: "pilot",
       title: "event.pilot.title",
@@ -1583,7 +1703,23 @@ export function pickEvent(s) {
       a: { id: "wait", label: "event.ice.wait", hint: "event.ice.waitHint" },
       b: { id: "force", label: "event.ice.force", hint: "event.ice.forceHint" },
     };
-  else if (grey && r < 0.32)
+  else if (grey && r < 0.26)
+    ev = {
+      id: "ribdrop",
+      title: "event.ribdrop.title",
+      body: "event.ribdrop.body",
+      a: { id: "drop", label: "event.ribdrop.drop", hint: "event.ribdrop.dropHint" },
+      b: { id: "keep", label: "event.ribdrop.keep", hint: "event.ribdrop.keepHint" },
+    };
+  else if (grey && r < 0.4)
+    ev = {
+      id: "stash",
+      title: "event.stash.title",
+      body: "event.stash.body",
+      a: { id: "hide", label: "event.stash.hide", hint: "event.stash.hideHint" },
+      b: { id: "open", label: "event.stash.open", hint: "event.stash.openHint" },
+    };
+  else if (grey && r < 0.55)
     ev = {
       id: "coastguard",
       title: "event.coastguard.title",
@@ -1828,46 +1964,40 @@ export function resolveEvent(s, choice) {
       };
       log(next, "log.ev.fuelJury");
     } else log(next, "log.ev.fuelBurn");
-  } else if (ev.id === "radio") {
-    if (choice === "take" && ship) {
-      const wantHh = remainingHh(ship) >= 28 && Math.random() < 0.55;
-      const extra = {
-        id: uid("lot"),
-        origin: ship.port,
-        dest: v?.to ?? (ship.port === "zeebrugge" ? "baltimore" : "zeebrugge"),
-        brand: pick(BRANDS, Math.random),
-        kind: wantHh ? "hh" : "cars",
-        ceu: wantHh ? 160 + Math.floor(Math.random() * 220) : 110 + Math.floor(Math.random() * 180),
-        hh: wantHh ? 32 + Math.floor(Math.random() * 48) : 0,
-        rate: wantHh ? 860 + Math.floor(Math.random() * 280) : 420 + Math.floor(Math.random() * 220),
-        contract: false,
-        deadline: s.day + 9,
-        grey: true,
-        note: "yellow",
-      };
-      if (remainingCeu(ship) >= extra.ceu && remainingHh(ship) >= extra.hh) {
+  } else if (ev.id === "radio" || ev.id === "nightdeal") {
+    if (choice === "take" && ship) next = takeGreyDeal(next, ship, Boolean(v));
+    else log(next, "log.ev.greyNo");
+  } else if (ev.id === "snitch") {
+    if (choice === "pay") {
+      const cost = 22e3 + next.heat * 180;
+      next = { ...next, cash: next.cash - cost, heat: Math.max(0, next.heat - 10) };
+      log(next, "log.ev.snitchPay", { cost });
+    } else {
+      next = { ...next, heat: next.heat + 14 };
+      log(next, "log.ev.snitchStare");
+    }
+  } else if (ev.id === "stash") {
+    if (choice === "hide") {
+      bump(0.35);
+      next = { ...next, heat: Math.max(0, next.heat - 12) };
+      log(next, "log.ev.stashHide");
+    } else log(next, "log.ev.stashOpen");
+  } else if (ev.id === "ribdrop") {
+    if (choice === "drop" && ship) {
+      const grey = ship.hold.find((l) => l.grey);
+      if (grey) {
+        const pay = Math.round(grey.ceu * grey.rate * 0.55);
         next = {
           ...next,
-          heat: next.heat + 26,
+          cash: next.cash + pay,
+          heat: Math.max(0, next.heat - 10),
           fleet: next.fleet.map((sh) =>
-            sh.id === ship.id
-              ? {
-                  ...sh,
-                  hold: [...sh.hold, extra],
-                }
-              : sh,
+            sh.id === ship.id ? { ...sh, hold: sh.hold.filter((l) => l.id !== grey.id) } : sh,
           ),
         };
-        log(next, "log.ev.greyTake");
-      } else {
-        next = {
-          ...next,
-          cash: next.cash + 110e3 + Math.floor(Math.random() * 50e3),
-          heat: next.heat + 10,
-        };
-        log(next, "log.ev.greyCash");
-      }
-    } else log(next, "log.ev.greyNo");
+        log(next, "log.ev.ribdrop", { n: pay });
+      } else log(next, "log.ev.ribdropNone");
+    } else log(next, "log.ev.ribkeep");
   } else if (ev.id === "hhdeal") {
     if (choice === "take" && ship) {
       const extra = {

@@ -13,6 +13,7 @@ import { PortPanel } from "./screens/PortPanel";
 import { SettingsSheet } from "./screens/SettingsSheet";
 import { Paywall } from "./screens/Paywall";
 import { TitleScreen } from "./screens/TitleScreen";
+import { HelmOverlay } from "./screens/HelmOverlay";
 import { hydrateIap, iapCanPlay, refreshTrialClock, useIap } from "@/lib/iap";
 import { hydrateSaveFlag, useGame } from "./store";
 import { setMuted } from "./audio";
@@ -46,6 +47,7 @@ export function Game() {
         g.state.phase !== "event" &&
         g.state.phase !== "title" &&
         g.state.phase !== "end" &&
+        !g.state.helm &&
         !g.ui.settings &&
         iapCanPlay()
       ) {
@@ -79,6 +81,7 @@ export function Game() {
 
 function CareerShell() {
   const phase = useGame((s) => s.state.phase);
+  const helm = useGame((s) => s.state.helm);
   const settings = useGame((s) => s.ui.settings);
   const mapHud = useGame((s) => s.ui.mapHud) !== false;
   const setSettings = useGame((s) => s.setSettings);
@@ -130,7 +133,8 @@ function CareerShell() {
           <PortPanel />
         </div>
       </div>
-      {phase === "event" ? <EventModal /> : null}
+      {phase === "event" && !helm ? <EventModal /> : null}
+      {helm ? <HelmOverlay /> : null}
       <EtsModal />
       {settings ? <SettingsSheet /> : null}
       {locked || paywallOpen ? <Paywall blocking onLeaveToTitle={toTitle} /> : null}
@@ -142,7 +146,7 @@ function StatusBanners() {
   const s = useGame((g) => g.state);
   const ship = activeShip(s);
   const t = useT();
-  if (s.phase === "event") return null;
+  if (s.phase === "event" || s.helm) return null;
   const left = ship ? drydockLeft(ship, s.day) : 99;
   const bargeDays = ship ? bargeLeft(ship, s.day) : 0;
   const heat = s.heat ?? 0;

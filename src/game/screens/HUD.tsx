@@ -11,7 +11,7 @@ export function HUD() {
   const t = useT();
   const etsEst = Math.round(s.etsAcc * 80);
   return (
-    <header className="flex min-w-0 max-w-full flex-wrap items-center gap-x-3 gap-y-0.5 border-b border-border bg-bg-elevated/95 px-3 py-1.5 text-xs sm:gap-x-4 sm:py-2">
+    <header className="flex flex-wrap items-center gap-x-3 gap-y-0.5 border-b border-border bg-bg-elevated/95 px-3 py-1.5 text-xs sm:gap-x-4 sm:py-2">
       <p className="max-w-44 truncate font-display text-sm tracking-wide text-accent" title={s.company || s.captain || t("brand.short")}>
         {s.company || s.captain || t("brand.short")}
       </p>
@@ -48,8 +48,11 @@ export function HUD() {
           <span className="text-subtle"> {t("hud.perNm")}</span>
         </p>
       ) : null}
-      {s.heat >= 10 ? (
-        <p className="hidden tabular-nums text-warn sm:block">
+      {s.heat >= 1 || (ship?.hold.some((l) => l.grey) ?? false) ? (
+        <p
+          className="tabular-nums text-warn"
+          title={t("hud.heatHint", { n: s.heat })}
+        >
           {t("hud.heat")} {s.heat}
         </p>
       ) : null}

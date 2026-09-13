@@ -6,6 +6,7 @@ export type Tab = "cargo" | "bunkers" | "yard" | "charter" | "log";
 export type Tempo = 0 | 1 | 2 | 4 | 8;
 export type Atlas = "europe" | "world";
 export type CharterKind = "in" | "out";
+export type HelmKind = "depart" | "arrive";
 
 export type UpgradeId = "scrubber" | "prop" | "ice" | "lashing" | "fuelopt" | "tankcoat" | "hhdeck";
 
@@ -129,6 +130,15 @@ export type Charter = {
 
 export type LogLine = { day: number; text: string };
 
+export type HelmJob = {
+  kind: HelmKind;
+  shipId: string;
+  port: string;
+  dest?: string;
+  full?: boolean;
+  bump?: boolean;
+};
+
 export type GameState = {
   phase: Phase;
   captain: string;
@@ -170,6 +180,7 @@ export type GameState = {
   lastGreenMonth: number;
   ceuMarks: number[];
   pendingEvent: EventPick | null;
+  helm: HelmJob | null;
 };
 
 export type UiState = {
@@ -182,6 +193,7 @@ export type UiState = {
   atlas: Atlas;
   viewSeq: number;
   mapHud: boolean;
+  autoPilot: boolean;
 };
 
 export type SaveBlob = {
