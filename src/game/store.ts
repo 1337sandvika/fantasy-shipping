@@ -32,9 +32,8 @@ import {
   hirePilot,
   finishHelm,
   scrapeHelm,
-  sinkHelm,
-  resolveWreck,
 } from "./sim";
+import { sinkHelm, resolveWreck } from "./wreck";
 import { persist, loadSave, hasSaveFlag, clearSave } from "./save";
 import { blip, chime, foghorn } from "./audio";
 import { activeShip, bunkerPlanFor, fleetHasBarge, fleetValue } from "./fleet";
