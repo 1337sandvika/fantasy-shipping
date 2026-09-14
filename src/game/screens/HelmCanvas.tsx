@@ -141,11 +141,20 @@ export function HelmCanvas({ helmKind, portId, ship, onWin, onCrash, onHire }) {
     >
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full touch-none" />
       {onHire ? (
-        <div className="absolute right-2 top-2 z-10">
-          <button type="button" className="select-none rounded-md border border-border bg-bg-elevated/90 px-3 py-1.5 text-xs" onClick={onHire}>{t("helm.pilot")}</button>
+        <div
+          className="absolute right-3 z-20"
+          style={{ top: "calc(env(safe-area-inset-top, 0px) + 3.25rem)" }}
+        >
+          <button
+            type="button"
+            className="min-h-11 select-none rounded-md border border-border bg-bg-elevated px-4 py-2 text-sm shadow-panel"
+            onClick={onHire}
+          >
+            {t("helm.pilot")}
+          </button>
         </div>
       ) : null}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-between gap-2 p-2">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-between gap-2 px-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
         <p className="rounded-md bg-bg/75 px-2 py-1 text-[10px] tracking-[0.18em] text-accent">{t("helm.kicker")}</p>
         <p className="rounded-md bg-bg/75 px-2 py-1 font-mono text-[11px] tabular-nums text-muted">{Math.round(hud.dist)} m \u00b7 {hud.speed.toFixed(1)} kn</p>
       </div>
