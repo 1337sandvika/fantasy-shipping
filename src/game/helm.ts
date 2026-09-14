@@ -133,7 +133,9 @@ export function helmWon(c: HelmCraft, kind: HelmJob["kind"], harbor: Harbor): bo
   return c.y < 7.5 && Math.abs(c.x) < harbor.berth * 0.42 && Math.abs(wrapPi(c.heading)) < 0.42 && Math.abs(c.speed) < 2.4;
 }
 
-export function stepCraft(c: HelmCraft, a: HelmActions, harbor: Harbor, dt: number): { craft: HelmCraft; hit: boolean } {
+export type HelmHit = false | "scrape" | "sink";
+
+export function stepCraft(c: HelmCraft, a: HelmActions, harbor: Harbor, dt: number): { craft: HelmCraft; hit: HelmHit } {
   const throttle = Math.max(-1, Math.min(1, a.throttle));
   const steer = Math.max(-1, Math.min(1, a.steer));
   let speed = c.speed + throttle * 5.8 * dt;
@@ -149,7 +151,9 @@ export function stepCraft(c: HelmCraft, a: HelmActions, harbor: Harbor, dt: numb
   const next = { ...c, x, y, heading, speed };
   if (!colliding(next, harbor)) return { craft: next, hit: false };
   const bounced = { ...c, speed: -c.speed * 0.28, x: c.x - f.x * 0.35, y: c.y - f.y * 0.35 };
-  return { craft: colliding(bounced, harbor) ? { ...c, speed: 0 } : bounced, hit: Math.abs(c.speed) > 2.05 };
+  const v = Math.abs(c.speed);
+  const hit: HelmHit = v > 3.6 ? "sink" : v > 2.05 ? "scrape" : false;
+  return { craft: colliding(bounced, harbor) ? { ...c, speed: 0 } : bounced, hit };
 }
 
 export function actionsFromKeys(keys: Set<string>, probeSteer: number | null): HelmActions {
