@@ -41,7 +41,11 @@ export function HelmOverlay() {
   const wreckBody = tcWreck ? (goingBroke ? "helm.lostTcBrokeBody" : "helm.lostTcBody") : lost ? "helm.lostBody" : "helm.sinkBody";
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-bg text-fg">
+    <div
+      className="fixed inset-0 z-50 flex flex-col bg-bg text-fg select-none"
+      style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none", userSelect: "none" }}
+      onContextMenu={(e) => e.preventDefault()}
+    >
       {mode === "play" ? (
         <HelmCanvas
           helmKind={helm.kind}
