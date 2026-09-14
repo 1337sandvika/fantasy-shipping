@@ -34,13 +34,17 @@ export function drydockLeft(ship: Ship, day: number): number {
   return 365 - (day - ship.lastDrydock);
 }
 
-export function hullValue(ship: Ship): number {
-  if (ship.charter === "in") return 0;
+export function replacementValue(ship: Pick<Ship, "hullId" | "year" | "condition">): number {
   const h = hullById(ship.hullId);
   const base = h?.price ?? 2_000_000;
   const age = Math.max(0, 2026 - ship.year);
   const cond = ship.condition / 100;
   return Math.round(base * (0.55 + 0.45 * cond) * Math.max(0.35, 1 - age * 0.015));
+}
+
+export function hullValue(ship: Ship): number {
+  if (ship.charter === "in") return 0;
+  return replacementValue(ship);
 }
 
 export function fleetValue(s: GameState): number {
