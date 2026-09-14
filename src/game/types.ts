@@ -122,9 +122,7 @@ export type Charter = {
   rate: number;
   untilDay: number;
   deposit: number;
-  /** Bunkers remaining on board at on-hire survey, tonnes. */
   bunkersOn?: number;
-  /** Logged once when the hire is due but the hull is still at sea or laden. */
   notice?: boolean;
 };
 
@@ -137,6 +135,13 @@ export type HelmJob = {
   dest?: string;
   full?: boolean;
   bump?: boolean;
+  wreck?: boolean;
+  lost?: boolean;
+  lostCeu?: number;
+  salvage?: number;
+  hullBill?: number;
+  tcWreck?: boolean;
+  shipName?: string;
 };
 
 export type GameState = {
