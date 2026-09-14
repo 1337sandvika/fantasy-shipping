@@ -111,6 +111,13 @@ export function hydrate(state: GameState): GameState {
             dest: state.helm.dest,
             full: Boolean(state.helm.full),
             bump: Boolean(state.helm.bump),
+            wreck: Boolean(state.helm.wreck),
+            lost: Boolean(state.helm.lost),
+            lostCeu: Number(state.helm.lostCeu) || 0,
+            salvage: Number(state.helm.salvage) || 0,
+            hullBill: Number(state.helm.hullBill) || 0,
+            tcWreck: Boolean(state.helm.tcWreck),
+            shipName: state.helm.shipName ? String(state.helm.shipName) : undefined,
           }
         : null,
   };
