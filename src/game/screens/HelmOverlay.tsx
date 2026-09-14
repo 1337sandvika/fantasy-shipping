@@ -47,6 +47,7 @@ export function HelmOverlay() {
           helmKind={helm.kind}
           portId={helm.port}
           ship={ship ?? { ceu: 2000, condition: 80, name: helm.shipName ?? "-" }}
+          onHire={() => hire()}
           onWin={() => {
             blip(330, 0.12);
             finish();
