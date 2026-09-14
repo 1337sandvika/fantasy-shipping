@@ -7,8 +7,6 @@ import {
   makeHarbor,
   spawnCraft,
   stepCraft,
-  type Harbor,
-  type HelmCraft,
   type HelmHit,
 } from "../helm";
 
@@ -33,7 +31,6 @@ export function HelmCanvas({
   const probeSteer = useRef(null);
   const touch = useRef({ throttle: 0, steer: 0 });
   const craftRef = useRef(null);
-  const harborRef = useRef(null);
   const done = useRef(false);
   const winRef = useRef(onWin);
   const crashRef = useRef(onCrash);
@@ -43,7 +40,6 @@ export function HelmCanvas({
 
   useEffect(() => {
     const harbor = makeHarbor(portId, ship);
-    harborRef.current = harbor;
     craftRef.current = spawnCraft(helmKind, ship, harbor);
     done.current = false;
     setHud((h) => ({ ...h, brief: harbor.briefKey }));
@@ -63,7 +59,7 @@ export function HelmCanvas({
     window.addEventListener("blur", clear);
     document.addEventListener("visibilitychange", clear);
 
-    const probe = {
+    window.__controlsTest = {
       getYaw: () => craftRef.current?.heading ?? 0,
       getSpeed: () => craftRef.current?.speed ?? 0,
       setSteer: (v) => {
@@ -74,7 +70,6 @@ export function HelmCanvas({
         probeSteer.current = null;
       },
     };
-    window.__controlsTest = probe;
 
     let raf = 0;
     let last = performance.now();
@@ -116,16 +111,14 @@ export function HelmCanvas({
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
-    const onResize = () => fit(canvas);
+    window.addEventListener("resize", () => fit(canvas));
     fit(canvas);
-    window.addEventListener("resize", onResize);
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("keyup", onKey);
       window.removeEventListener("blur", clear);
       document.removeEventListener("visibilitychange", clear);
-      window.removeEventListener("resize", onResize);
       delete window.__controlsTest;
     };
   }, [helmKind, portId, ship]);
@@ -135,6 +128,7 @@ export function HelmCanvas({
       <canvas ref={canvasRef} className="h-full w-full touch-none" />
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3">
         <p className="rounded-md bg-bg/70 px-2 py-1 text-xs tracking-[0.18em] text-accent">{t("helm.kicker")}</p>
+        <p className="hidden rounded-md bg-bg/70 px-2 py-1 text-xs text-muted sm:block">{t("helm.controls")}</p>
         <p className="rounded-md bg-bg/70 px-2 py-1 font-mono text-xs tabular-nums text-muted">
           {hud.speed.toFixed(1)} kn \u00b7 {((hud.heading * 180) / Math.PI).toFixed(0)}\u00b0
         </p>
@@ -183,7 +177,15 @@ function fit(canvas) {
   canvas.height = Math.max(1, Math.floor(r.height * dpr));
 }
 
-function worldCam(ctx, canvas, harbor) {
+function worldCam(ctx, canvas, harbor, craft) {
+  if (craft) {
+    const zoom = Math.min(canvas.width, canvas.height) / 78;
+    ctx.translate(canvas.width / 2, canvas.height * 0.62);
+    ctx.scale(zoom, -zoom);
+    ctx.rotate(-craft.heading);
+    ctx.translate(-craft.x, -craft.y);
+    return;
+  }
   const pad = 8;
   const bw = harbor.maxX - harbor.minX;
   const bh = harbor.maxY - harbor.minY;
@@ -202,20 +204,16 @@ function strokeRect(ctx, x, y, w, h, fill, stroke) {
 }
 
 function drawHarbor(ctx, canvas, craft, harbor, kind, name, now) {
-  const w = canvas.width;
-  const h = canvas.height;
   const pulse = 0.5 + 0.5 * Math.sin(now / 900);
-  ctx.fillStyle = `rgb(${18 + pulse * 8}, ${70 + pulse * 18}, ${88 + pulse * 10})`;
-  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = "rgb(" + (18 + pulse * 8) + ", " + (70 + pulse * 18) + ", " + (88 + pulse * 10) + ")";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
   if (!harbor) return;
   ctx.save();
-  worldCam(ctx, canvas, harbor);
-
+  worldCam(ctx, canvas, harbor, craft);
   ctx.fillStyle = "#1f6b4a";
   ctx.fillRect(harbor.minX, harbor.minY, harbor.maxX - harbor.minX, harbor.maxY - harbor.minY);
-  ctx.fillStyle = `rgb(${22 + pulse * 10}, ${86 + pulse * 20}, ${102 + pulse * 12})`;
+  ctx.fillStyle = "rgb(" + (22 + pulse * 10) + ", " + (86 + pulse * 20) + ", " + (102 + pulse * 12) + ")";
   ctx.fillRect(-harbor.chan * 1.4, -8, harbor.chan * 2.8, harbor.seaY + 28);
-
   for (const p of harbor.props) {
     if (p.kind === "road") {
       strokeRect(ctx, p.x, p.y, p.w, p.h, "#3d3d3d", "#111");
@@ -227,13 +225,7 @@ function drawHarbor(ctx, canvas, craft, harbor, kind, name, now) {
       ctx.lineTo(p.x + p.w / 2, p.y + p.h);
       ctx.stroke();
       ctx.setLineDash([]);
-    } else if (p.kind === "lot" || p.kind === "park") {
-      strokeRect(ctx, p.x, p.y, p.w, p.h, p.color, "#111");
-    } else if (p.kind === "bldg") {
-      strokeRect(ctx, p.x, p.y, p.w, p.h, p.color, "#0a0a0a");
-    } else if (p.kind === "car") {
-      strokeRect(ctx, p.x, p.y, p.w, p.h, p.color, "#111");
-    } else if (p.kind === "box") {
+    } else if (p.kind === "lot" || p.kind === "park" || p.kind === "bldg" || p.kind === "car" || p.kind === "box") {
       strokeRect(ctx, p.x, p.y, p.w, p.h, p.color, "#111");
     } else if (p.kind === "tank") {
       ctx.beginPath();
@@ -256,14 +248,10 @@ function drawHarbor(ctx, canvas, craft, harbor, kind, name, now) {
       strokeRect(ctx, p.x, p.y + p.h + 4, p.w, 1.2, "#c9a227", "#111");
     }
   }
-
-  ctx.fillStyle = "#6b7280";
   for (const wall of harbor.walls) strokeRect(ctx, wall.x, wall.y, wall.w, wall.h, "#5c6570", "#111");
-
   strokeRect(ctx, harbor.berthX - harbor.berth / 2, harbor.berthY - 3, harbor.berth, 8, "#8a8474", "#111");
   ctx.fillStyle = "#e2d3a4";
   ctx.fillRect(harbor.berthX - harbor.berth / 2, harbor.berthY + 2.4, harbor.berth, 0.35);
-
   ctx.strokeStyle = "rgba(255,255,255,0.35)";
   ctx.lineWidth = 0.2;
   ctx.setLineDash([1.3, 1.5]);
@@ -272,7 +260,6 @@ function drawHarbor(ctx, canvas, craft, harbor, kind, name, now) {
   ctx.lineTo(harbor.kind === "dogleg" ? 11 : 0, harbor.seaY + 10);
   ctx.stroke();
   ctx.setLineDash([]);
-
   for (const b of harbor.buoys) {
     ctx.beginPath();
     ctx.arc(b.x, b.y, 0.75, 0, Math.PI * 2);
@@ -282,7 +269,6 @@ function drawHarbor(ctx, canvas, craft, harbor, kind, name, now) {
     ctx.lineWidth = 0.22;
     ctx.stroke();
   }
-
   if (kind === "depart") {
     ctx.fillStyle = "rgba(232,93,4,0.28)";
     ctx.fillRect(-harbor.chan, harbor.seaY, harbor.chan * 2, 12);
@@ -290,7 +276,6 @@ function drawHarbor(ctx, canvas, craft, harbor, kind, name, now) {
     ctx.fillStyle = "rgba(232,93,4,0.3)";
     ctx.fillRect(harbor.berthX - harbor.berth * 0.4, harbor.berthY - 1, harbor.berth * 0.8, 7);
   }
-
   if (craft) {
     ctx.save();
     ctx.translate(craft.x, craft.y);
@@ -306,7 +291,6 @@ function drawHarbor(ctx, canvas, craft, harbor, kind, name, now) {
     ctx.fill();
     ctx.restore();
   }
-
   ctx.restore();
   ctx.fillStyle = "rgba(237,230,217,0.8)";
   ctx.font = Math.round(canvas.height * 0.018) + 'px "IBM Plex Sans", sans-serif';
