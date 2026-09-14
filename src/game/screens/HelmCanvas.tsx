@@ -1,53 +1,54 @@
 // @ts-nocheck
 import { useEffect, useRef, useState } from "react";
 import { useT } from "@/i18n";
-import {
-  actionsFromKeys,
-  helmWon,
-  makeHarbor,
-  spawnCraft,
-  stepCraft,
-  type HelmHit,
-} from "../helm";
+import { actionsFromKeys, helmWon, makeHarbor, spawnCraft, stepCraft } from "../helm";
 
 const GAME_KEYS = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"]);
+const SHIP_IMG = "https://palm-river-olive-field.grok.me/game/helm/ship-top.png";
+const BOAT_IMG = "https://palm-river-olive-field.grok.me/game/helm/workboat.png";
+const SINK_IMG = "https://palm-river-olive-field.grok.me/game/helm/sink.jpg";
+const WATER = ["#2a7480", "#1f5f6a", "#2d6e78"];
+const LAND = ["#4a7a3e", "#3e6b48", "#5a6a42", "#4a5a3a"];
+const QUAY = "#8a8a7c";
+const INK = "#141410";
 
-export function HelmCanvas({
-  helmKind,
-  portId,
-  ship,
-  onWin,
-  onCrash,
-}: {
-  helmKind: "depart" | "arrive";
-  portId: string;
-  ship: { ceu: number; condition: number; name: string };
-  onWin: () => void;
-  onCrash: (kind: Exclude<HelmHit, false>) => void;
-}) {
+export function HelmCanvas({ helmKind, portId, ship, onWin, onCrash }) {
   const canvasRef = useRef(null);
   const t = useT();
   const keys = useRef(new Set());
   const probeSteer = useRef(null);
   const touch = useRef({ throttle: 0, steer: 0 });
   const craftRef = useRef(null);
+  const harborRef = useRef(null);
   const done = useRef(false);
   const winRef = useRef(onWin);
   const crashRef = useRef(onCrash);
+  const imgs = useRef({ ship: null, boat: null });
+  const [sinking, setSinking] = useState(false);
   winRef.current = onWin;
   crashRef.current = onCrash;
   const [hud, setHud] = useState({ speed: 0, heading: 0, brief: "" });
 
   useEffect(() => {
+    const a = new Image();
+    a.src = SHIP_IMG;
+    a.onload = () => { imgs.current.ship = a; };
+    const b = new Image();
+    b.src = BOAT_IMG;
+    b.onload = () => { imgs.current.boat = b; };
+  }, []);
+
+  useEffect(() => {
     const harbor = makeHarbor(portId, ship);
+    harborRef.current = harbor;
     craftRef.current = spawnCraft(helmKind, ship, harbor);
     done.current = false;
+    setSinking(false);
     setHud((h) => ({ ...h, brief: harbor.briefKey }));
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-
     const onKey = (e) => {
       if (GAME_KEYS.has(e.code)) e.preventDefault();
       if (e.type === "keydown") keys.current.add(e.code);
@@ -58,19 +59,12 @@ export function HelmCanvas({
     window.addEventListener("keyup", onKey);
     window.addEventListener("blur", clear);
     document.addEventListener("visibilitychange", clear);
-
     window.__controlsTest = {
       getYaw: () => craftRef.current?.heading ?? 0,
       getSpeed: () => craftRef.current?.speed ?? 0,
-      setSteer: (v) => {
-        probeSteer.current = v;
-      },
-      setKeys: (codes) => {
-        keys.current = new Set(codes);
-        probeSteer.current = null;
-      },
+      setSteer: (v) => { probeSteer.current = v; },
+      setKeys: (codes) => { keys.current = new Set(codes); probeSteer.current = null; },
     };
-
     let raf = 0;
     let last = performance.now();
     let acc = 0;
@@ -79,7 +73,8 @@ export function HelmCanvas({
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
       acc += dt;
-      if (!done.current) {
+      const harbor = harborRef.current;
+      if (!done.current && harbor) {
         while (acc >= step) {
           acc -= step;
           const cur = craftRef.current;
@@ -93,6 +88,7 @@ export function HelmCanvas({
           craftRef.current = craft;
           if (hit) {
             done.current = true;
+            if (hit === "sink") setSinking(true);
             crashRef.current(hit);
             break;
           }
@@ -102,16 +98,15 @@ export function HelmCanvas({
             break;
           }
         }
-      }
+      } else acc = 0;
       fit(canvas);
-      drawHarbor(ctx, canvas, craftRef.current, harbor, helmKind, ship.name, now);
+      drawWorld(ctx, canvas, craftRef.current, harborRef.current, helmKind, ship.name, now / 1000, t, imgs.current);
       if (craftRef.current && Math.floor(now / 200) !== Math.floor((now - dt * 1000) / 200)) {
-        setHud({ speed: craftRef.current.speed, heading: craftRef.current.heading, brief: harbor.briefKey });
+        setHud({ speed: craftRef.current.speed, heading: craftRef.current.heading, brief: harborRef.current?.briefKey || "" });
       }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
-    window.addEventListener("resize", () => fit(canvas));
     fit(canvas);
     return () => {
       cancelAnimationFrame(raf);
@@ -121,22 +116,31 @@ export function HelmCanvas({
       document.removeEventListener("visibilitychange", clear);
       delete window.__controlsTest;
     };
-  }, [helmKind, portId, ship]);
+  }, [helmKind, portId, ship.ceu, ship.condition, ship.name]);
+
+  if (sinking) {
+    return (
+      <div className="relative min-h-0 flex-1 overflow-hidden bg-bg">
+        <img src={SINK_IMG} alt="" className="absolute inset-0 h-full w-full object-cover" draggable={false} />
+        <p className="absolute left-1/2 top-10 -translate-x-1/2 animate-pulse rounded-md border border-danger bg-danger/85 px-5 py-2 font-display text-lg tracking-[0.35em] text-fg">
+          {t("helm.alarm") || "PANIC"}
+        </p>
+        <p className="absolute bottom-8 left-0 right-0 text-center font-display text-xl text-fg">M/V {ship.name}</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="relative min-h-0 flex-1">
-      <canvas ref={canvasRef} className="h-full w-full touch-none" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3">
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <canvas ref={canvasRef} className="min-h-0 w-full flex-1 touch-none" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-between gap-2 p-3">
         <p className="rounded-md bg-bg/70 px-2 py-1 text-xs tracking-[0.18em] text-accent">{t("helm.kicker")}</p>
-        <p className="hidden rounded-md bg-bg/70 px-2 py-1 text-xs text-muted sm:block">{t("helm.controls")}</p>
         <p className="rounded-md bg-bg/70 px-2 py-1 font-mono text-xs tabular-nums text-muted">
           {hud.speed.toFixed(1)} kn \u00b7 {((hud.heading * 180) / Math.PI).toFixed(0)}\u00b0
         </p>
       </div>
       <div className="pointer-events-none absolute inset-x-0 bottom-16 flex justify-center px-3 sm:bottom-3">
-        <p className="rounded-md bg-bg/80 px-3 py-1.5 text-center text-xs text-fg">
-          {t(hud.brief || "helm.layout.straight")}
-        </p>
+        <p className="rounded-md bg-bg/80 px-3 py-1.5 text-center text-xs text-fg">{t(hud.brief || "helm.layout.straight")}</p>
       </div>
       <div className="absolute inset-x-0 bottom-3 flex items-end justify-between gap-3 px-3 sm:hidden">
         <div className="flex gap-2">
@@ -154,19 +158,9 @@ export function HelmCanvas({
 
 function Pad({ label, onHold }) {
   return (
-    <button
-      type="button"
-      className="flex size-14 items-center justify-center rounded-md border border-border bg-bg-elevated/90 text-lg text-fg"
-      onPointerDown={(e) => {
-        e.preventDefault();
-        e.currentTarget.setPointerCapture(e.pointerId);
-        onHold(true);
-      }}
-      onPointerUp={() => onHold(false)}
-      onPointerCancel={() => onHold(false)}
-    >
-      {label}
-    </button>
+    <button type="button" className="flex size-14 items-center justify-center rounded-md border border-border bg-bg-elevated/90 text-lg text-fg"
+      onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); onHold(true); }}
+      onPointerUp={() => onHold(false)} onPointerCancel={() => onHold(false)}>{label}</button>
   );
 }
 
@@ -177,122 +171,109 @@ function fit(canvas) {
   canvas.height = Math.max(1, Math.floor(r.height * dpr));
 }
 
-function worldCam(ctx, canvas, harbor, craft) {
-  if (craft) {
-    const zoom = Math.min(canvas.width, canvas.height) / 78;
-    ctx.translate(canvas.width / 2, canvas.height * 0.62);
-    ctx.scale(zoom, -zoom);
-    ctx.rotate(-craft.heading);
-    ctx.translate(-craft.x, -craft.y);
-    return;
-  }
-  const pad = 8;
-  const bw = harbor.maxX - harbor.minX;
-  const bh = harbor.maxY - harbor.minY;
-  const zoom = Math.min((canvas.width - pad) / bw, (canvas.height - pad) / bh);
-  ctx.translate(canvas.width / 2, canvas.height / 2);
-  ctx.scale(zoom, -zoom);
-  ctx.translate(-(harbor.minX + harbor.maxX) / 2, -(harbor.minY + harbor.maxY) / 2);
+function applyCam(ctx, canvas, harbor, kind) {
+  const w = canvas.width, h = canvas.height;
+  const a = Math.max(90, h - 16);
+  const o = harbor.seaY + 20;
+  const s = o + 16;
+  const c = Math.max(harbor.span || 52, harbor.chan + 32);
+  const l = Math.min(w / c, a / s) * 0.92;
+  const u = (-16 + o) / 2;
+  ctx.translate(w / 2, 8 + a / 2);
+  if (kind === "depart") ctx.scale(l, -l);
+  else ctx.scale(-l, l);
+  ctx.translate(-(harbor.offset || 0), -u);
 }
 
-function strokeRect(ctx, x, y, w, h, fill, stroke) {
+function strokeRect(ctx, x, y, w, h, fill) {
   ctx.fillStyle = fill;
-  ctx.strokeStyle = stroke || "#111";
-  ctx.lineWidth = 0.28;
   ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 0.14;
   ctx.strokeRect(x, y, w, h);
 }
 
-function drawHarbor(ctx, canvas, craft, harbor, kind, name, now) {
-  const pulse = 0.5 + 0.5 * Math.sin(now / 900);
-  ctx.fillStyle = "rgb(" + (18 + pulse * 8) + ", " + (70 + pulse * 18) + ", " + (88 + pulse * 10) + ")";
+function drawShip(ctx, c, img, scale) {
+  ctx.save();
+  ctx.translate(c.x, c.y);
+  ctx.rotate(c.heading);
+  const i = c.beam * scale, a = c.length * scale;
+  if (img && img.naturalWidth > 0) {
+    ctx.scale(1, -1);
+    ctx.drawImage(img, -i / 2, -a / 2, i, a);
+  } else {
+    ctx.fillStyle = "#1a0c04";
+    ctx.fillRect(-i / 2, -a / 2, i, a);
+    ctx.fillStyle = "#d8cbb6";
+    ctx.fillRect(-i * 0.3, -a * 0.12, i * 0.6, a * 0.32);
+    ctx.fillStyle = "#e85d04";
+    ctx.beginPath();
+    ctx.moveTo(0, a / 2);
+    ctx.lineTo(-i * 0.42, a / 2 - 1.5);
+    ctx.lineTo(i * 0.42, a / 2 - 1.5);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawWorld(ctx, canvas, craft, harbor, kind, name, now, t, imgs) {
+  ctx.fillStyle = "#071820";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   if (!harbor) return;
   ctx.save();
-  worldCam(ctx, canvas, harbor, craft);
-  ctx.fillStyle = "#1f6b4a";
-  ctx.fillRect(harbor.minX, harbor.minY, harbor.maxX - harbor.minX, harbor.maxY - harbor.minY);
-  ctx.fillStyle = "rgb(" + (22 + pulse * 10) + ", " + (86 + pulse * 20) + ", " + (102 + pulse * 12) + ")";
-  ctx.fillRect(-harbor.chan * 1.4, -8, harbor.chan * 2.8, harbor.seaY + 28);
-  for (const p of harbor.props) {
-    if (p.kind === "road") {
-      strokeRect(ctx, p.x, p.y, p.w, p.h, "#3d3d3d", "#111");
-      ctx.strokeStyle = "#d4b84a";
-      ctx.lineWidth = 0.18;
-      ctx.setLineDash([1.4, 1.6]);
-      ctx.beginPath();
-      ctx.moveTo(p.x + p.w / 2, p.y);
-      ctx.lineTo(p.x + p.w / 2, p.y + p.h);
-      ctx.stroke();
-      ctx.setLineDash([]);
-    } else if (p.kind === "lot" || p.kind === "park" || p.kind === "bldg" || p.kind === "car" || p.kind === "box") {
-      strokeRect(ctx, p.x, p.y, p.w, p.h, p.color, "#111");
-    } else if (p.kind === "tank") {
-      ctx.beginPath();
-      ctx.arc(p.x + p.w / 2, p.y + p.h / 2, p.w / 2, 0, Math.PI * 2);
-      ctx.fillStyle = p.color;
-      ctx.fill();
-      ctx.strokeStyle = "#111";
-      ctx.lineWidth = 0.28;
-      ctx.stroke();
-    } else if (p.kind === "tree") {
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.w, 0, Math.PI * 2);
-      ctx.fillStyle = p.color;
-      ctx.fill();
-      ctx.strokeStyle = "#111";
-      ctx.lineWidth = 0.2;
-      ctx.stroke();
-    } else if (p.kind === "crane") {
-      strokeRect(ctx, p.x, p.y, 1.4, p.h + 6, "#c9a227", "#111");
-      strokeRect(ctx, p.x, p.y + p.h + 4, p.w, 1.2, "#c9a227", "#111");
-    }
+  applyCam(ctx, canvas, harbor, kind);
+  ctx.fillStyle = WATER[harbor.water] || WATER[0];
+  ctx.fillRect(-140, -50, 280, harbor.seaY + 90);
+  ctx.fillStyle = "rgba(255,255,255,0.05)";
+  for (let i = 0; i < 10; i++) ctx.fillRect(-140, i * 14 + Math.sin(now * 0.4 + i) * 0.8, 280, 1.1);
+  for (const n of harbor.walls) {
+    const slim = n.h < 5 || n.w < 8.5;
+    strokeRect(ctx, n.x, n.y, n.w, n.h, slim ? QUAY : LAND[harbor.palette] || LAND[0]);
   }
-  for (const wall of harbor.walls) strokeRect(ctx, wall.x, wall.y, wall.w, wall.h, "#5c6570", "#111");
-  strokeRect(ctx, harbor.berthX - harbor.berth / 2, harbor.berthY - 3, harbor.berth, 8, "#8a8474", "#111");
-  ctx.fillStyle = "#e2d3a4";
-  ctx.fillRect(harbor.berthX - harbor.berth / 2, harbor.berthY + 2.4, harbor.berth, 0.35);
-  ctx.strokeStyle = "rgba(255,255,255,0.35)";
-  ctx.lineWidth = 0.2;
-  ctx.setLineDash([1.3, 1.5]);
-  ctx.beginPath();
-  ctx.moveTo(0, -6);
-  ctx.lineTo(harbor.kind === "dogleg" ? 11 : 0, harbor.seaY + 10);
-  ctx.stroke();
-  ctx.setLineDash([]);
+  const seg0 = harbor.segs?.[0];
+  if (seg0) {
+    strokeRect(ctx, seg0.x - harbor.berth / 2 - 1.4, -10, harbor.berth + 2.8, 16, QUAY);
+    ctx.fillStyle = "#c8c4b4";
+    ctx.fillRect(seg0.x - harbor.berth / 2, 4.6, harbor.berth, 0.5);
+  }
   for (const b of harbor.buoys) {
     ctx.beginPath();
-    ctx.arc(b.x, b.y, 0.75, 0, Math.PI * 2);
-    ctx.fillStyle = b.port ? "#d23a2a" : "#2f8a3c";
+    ctx.arc(b.x, b.y, 0.62, 0, Math.PI * 2);
+    ctx.fillStyle = b.port ? "#c43c3c" : "#3c8a4c";
     ctx.fill();
-    ctx.strokeStyle = "#111";
-    ctx.lineWidth = 0.22;
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 0.1;
     ctx.stroke();
   }
-  if (kind === "depart") {
-    ctx.fillStyle = "rgba(232,93,4,0.28)";
-    ctx.fillRect(-harbor.chan, harbor.seaY, harbor.chan * 2, 12);
-  } else {
-    ctx.fillStyle = "rgba(232,93,4,0.3)";
-    ctx.fillRect(harbor.berthX - harbor.berth * 0.4, harbor.berthY - 1, harbor.berth * 0.8, 7);
-  }
-  if (craft) {
-    ctx.save();
-    ctx.translate(craft.x, craft.y);
-    ctx.rotate(craft.heading);
-    strokeRect(ctx, -craft.beam / 2, -craft.length / 2, craft.beam, craft.length, "#1a0c04", "#111");
-    strokeRect(ctx, -craft.beam * 0.28, -craft.length * 0.08, craft.beam * 0.56, craft.length * 0.28, "#ede6d9", "#111");
-    ctx.fillStyle = "#e85d04";
+  for (const n of harbor.cranes || []) {
+    ctx.strokeStyle = "#c45c4a";
+    ctx.lineWidth = 0.32;
     ctx.beginPath();
-    ctx.moveTo(0, craft.length / 2);
-    ctx.lineTo(-craft.beam * 0.42, craft.length / 2 - 1.4);
-    ctx.lineTo(craft.beam * 0.42, craft.length / 2 - 1.4);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
+    ctx.moveTo(n.x, n.y);
+    ctx.lineTo(n.x, n.y + 7);
+    ctx.moveTo(n.x - 2.6, n.y + 1.3);
+    ctx.lineTo(n.x + 4.2, n.y + 1.3);
+    ctx.stroke();
   }
+  const pulse = 0.55 + 0.45 * Math.sin(now * 3.2);
+  const last = harbor.segs[harbor.segs.length - 1];
+  const gx = kind === "depart" ? last.x : harbor.berthX;
+  const gy = kind === "depart" ? harbor.seaY + 6 : 3.2;
+  const gw = kind === "depart" ? last.w * 0.48 : harbor.berth * 0.48;
+  ctx.fillStyle = "rgba(232,93,4," + (0.16 + pulse * 0.16) + ")";
+  ctx.fillRect(gx - gw, gy - 5, gw * 2, 12);
+  ctx.strokeStyle = "rgba(232,93,4," + (0.7 + pulse * 0.3) + ")";
+  ctx.lineWidth = 0.45;
+  ctx.strokeRect(gx - gw, gy - 5, gw * 2, 12);
+  if (craft) drawShip(ctx, craft, imgs.ship, 0.92);
   ctx.restore();
-  ctx.fillStyle = "rgba(237,230,217,0.8)";
+  ctx.fillStyle = "#e85d04";
+  ctx.font = "600 " + Math.round(Math.max(12, canvas.height * 0.028)) + 'px "IBM Plex Sans", sans-serif';
+  ctx.textAlign = "center";
+  ctx.fillText(kind === "depart" ? (t("helm.goalSea") || "SEA") : (t("helm.goalBerth") || "BERTH"), canvas.width / 2, 22);
+  ctx.fillStyle = "rgba(237,230,217,0.55)";
   ctx.font = Math.round(canvas.height * 0.018) + 'px "IBM Plex Sans", sans-serif';
-  ctx.fillText("M/V " + name + " \u00b7 " + (harbor.name || ""), 16, canvas.height - 18);
+  ctx.textAlign = "left";
+  ctx.fillText("M/V " + name + " \u00b7 " + (harbor.name || ""), 16, canvas.height - 14);
 }
