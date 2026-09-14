@@ -32,6 +32,8 @@ import {
   hirePilot,
   finishHelm,
   scrapeHelm,
+  sinkHelm,
+  resolveWreck,
 } from "./sim";
 import { persist, loadSave, hasSaveFlag, clearSave } from "./save";
 import { blip, chime, foghorn } from "./audio";
@@ -83,6 +85,8 @@ type Store = {
   hirePilot: () => void;
   finishHelm: () => void;
   scrapeHelm: () => void;
+  sinkHelm: () => void;
+  resolveWreck: () => void;
   setAutoPilot: (v: boolean) => void;
 };
 
@@ -323,6 +327,21 @@ export const useGame = create<Store>((set, get) => ({
     const state = scrapeHelm(get().state);
     persist(state);
     set({ state });
+  },
+  sinkHelm: () => {
+    const state = sinkHelm(get().state);
+    persist(state);
+    set({ state });
+    foghorn();
+  },
+  resolveWreck: () => {
+    const state = resolveWreck(get().state);
+    persist(state);
+    const ui = get().ui;
+    set({ state, ui: { ...ui, tempo: 0 } });
+    if (state.phase === "end" && state.endKind === "broke") {
+      foghorn();
+    }
   },
   setAutoPilot: (v) => {
     try {
