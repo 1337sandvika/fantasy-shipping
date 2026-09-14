@@ -12,6 +12,7 @@ import { pl } from "./pl";
 import { pt } from "./pt";
 import { tr } from "./tr";
 import { zh } from "./zh";
+import { extraMsg } from "./wreck-msg";
 import { setDaysLeftFmt, setFormatLocale } from "../game/format";
 
 export type Locale =
@@ -34,16 +35,16 @@ export const LOCALES: { id: Locale; native: string; html: string }[] = [
   { id: "en", native: "English", html: "en" },
   { id: "nb", native: "Norsk", html: "nb" },
   { id: "de", native: "Deutsch", html: "de" },
-  { id: "fr", native: "Français", html: "fr" },
+  { id: "fr", native: "Fran\u00e7ais", html: "fr" },
   { id: "nl", native: "Nederlands", html: "nl" },
-  { id: "es", native: "Español", html: "es" },
-  { id: "pt", native: "Português", html: "pt" },
+  { id: "es", native: "Espa\u00f1ol", html: "es" },
+  { id: "pt", native: "Portugu\u00eas", html: "pt" },
   { id: "it", native: "Italiano", html: "it" },
   { id: "pl", native: "Polski", html: "pl" },
-  { id: "el", native: "Ελληνικά", html: "el" },
-  { id: "tr", native: "Türkçe", html: "tr" },
-  { id: "zh", native: "中文", html: "zh-CN" },
-  { id: "hi", native: "हिन्दी", html: "hi" },
+  { id: "el", native: "\u0395\u03bb\u03bb\u03b7\u03bd\u03b9\u03ba\u03ac", html: "el" },
+  { id: "tr", native: "T\u00fcrk\u00e7e", html: "tr" },
+  { id: "zh", native: "\u4e2d\u6587", html: "zh-CN" },
+  { id: "hi", native: "\u0939\u093f\u0928\u094d\u0926\u0940", html: "hi" },
 ];
 
 const DICT: Record<Locale, Record<MsgKey, string>> = {
@@ -139,12 +140,16 @@ export function useLocale(): Locale {
 
 type Vars = Record<string, string | number>;
 
+function lookup(loc: Locale, key: string): string {
+  return extraMsg[loc]?.[key] ?? extraMsg.en?.[key] ?? DICT[loc][key as MsgKey] ?? en[key as MsgKey] ?? key;
+}
+
 export function t(key: MsgKey, vars?: Vars): string {
-  return fill(DICT[locale][key] ?? en[key] ?? key, vars);
+  return fill(lookup(locale, key), vars);
 }
 
 export function translate(loc: Locale, key: MsgKey, vars?: Vars): string {
-  return fill(DICT[loc][key] ?? en[key] ?? key, vars);
+  return fill(lookup(loc, key), vars);
 }
 
 function fill(s: string, vars?: Vars): string {
@@ -165,7 +170,7 @@ export function errMsg(raw: string, loc: Locale = locale): string {
 }
 
 export function maybeT(raw: string, vars?: Vars): string {
-  if (raw in en) return t(raw as MsgKey, vars);
+  if (raw in extraMsg.en || raw in extraMsg.nb || raw in en) return fill(lookup(locale, raw), vars);
   return raw;
 }
 
