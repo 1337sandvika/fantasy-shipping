@@ -1,24 +1,14 @@
 // @ts-nocheck
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/i18n";
 import { portName } from "../data/ports";
 import { money, qty } from "../format";
 import { activeShip } from "../fleet";
-import {
-  actionsFromKeys,
-  helmWon,
-  makeHarbor,
-  pilotFee,
-  spawnCraft,
-  stepCraft,
-  type HelmCraft,
-  type HelmHit,
-} from "../helm";
+import { pilotFee } from "../helm";
 import { blip, foghorn } from "../audio";
 import { useGame } from "../store";
-
-const GAME_KEYS = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"]);
+import { HelmCanvas } from "./HelmCanvas";
 
 export function HelmOverlay() {
   const helm = useGame((g) => g.state.helm);
@@ -30,7 +20,7 @@ export function HelmOverlay() {
   const resolveWreck = useGame((g) => g.resolveWreck);
   const t = useT();
   const ship = helm ? s.fleet.find((x) => x.id === helm.shipId) ?? activeShip(s) : null;
-  const [mode, setMode] = useState<"choice" | "play" | "crash" | "wreck">("choice");
+  const [mode, setMode] = useState("choice");
   const fee = ship && helm ? Math.round(pilotFee(ship, helm.port, helm.kind, s.heat) * (helm.bump || mode === "crash" ? 1.35 : 1)) : 0;
   const dear = s.cash < fee;
   const lost = Boolean(helm?.lost);
@@ -47,12 +37,8 @@ export function HelmOverlay() {
 
   if (!helm) return null;
   const title = helm.kind === "depart" ? t("helm.departTitle", { port: portName(helm.port) }) : t("helm.arriveTitle", { port: portName(helm.port) });
-  const wreckTitle = tcWreck
-    ? goingBroke ? "helm.lostTcBrokeTitle" : "helm.lostTcTitle"
-    : lost ? "helm.lostTitle" : "helm.sinkTitle";
-  const wreckBody = tcWreck
-    ? goingBroke ? "helm.lostTcBrokeBody" : "helm.lostTcBody"
-    : lost ? "helm.lostBody" : "helm.sinkBody";
+  const wreckTitle = tcWreck ? (goingBroke ? "helm.lostTcBrokeTitle" : "helm.lostTcTitle") : lost ? "helm.lostTitle" : "helm.sinkTitle";
+  const wreckBody = tcWreck ? (goingBroke ? "helm.lostTcBrokeBody" : "helm.lostTcBody") : lost ? "helm.lostBody" : "helm.sinkBody";
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-bg text-fg">
@@ -60,7 +46,7 @@ export function HelmOverlay() {
         <HelmCanvas
           helmKind={helm.kind}
           portId={helm.port}
-          ship={ship ?? { ceu: 2000, condition: 80, name: helm.shipName ?? "\u2014" }}
+          ship={ship ?? { ceu: 2000, condition: 80, name: helm.shipName ?? "-" }}
           onWin={() => {
             blip(330, 0.12);
             finish();
