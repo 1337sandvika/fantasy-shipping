@@ -20,8 +20,10 @@ export const extraMsg: Record<string, Record<string, string>> = {
     "helm.layout.narrow": "Narrow channel \u2014 slow is smart.",
     "helm.layout.lock": "Lock \u2014 thread the gates.",
     "helm.layout.fingers": "Finger piers \u2014 do not clip the quays.",
+    "helm.layout.piers": "Finger piers \u2014 do not clip the quays.",
     "helm.layout.island": "Island in the fairway \u2014 go around.",
     "helm.layout.side": "Side berth \u2014 you have to turn in.",
+    "helm.layout.offset": "Side berth \u2014 you have to turn in.",
     "helm.layout.basin": "Basin \u2014 wide inside, tight mouth.",
   },
   nb: {
@@ -45,8 +47,10 @@ export const extraMsg: Record<string, Record<string, string>> = {
     "helm.layout.narrow": "Smalt \u2014 sakte er lurt.",
     "helm.layout.lock": "Sluse \u2014 gjennom portene.",
     "helm.layout.fingers": "Fingerkaier \u2014 ikke klipp kaiene.",
+    "helm.layout.piers": "Fingerkaier \u2014 ikke klipp kaiene.",
     "helm.layout.island": "\u00d8y i renna \u2014 g\u00e5 rundt.",
     "helm.layout.side": "Kai p\u00e5 siden \u2014 du m\u00e5 svinge inn.",
+    "helm.layout.offset": "Kai p\u00e5 siden \u2014 du m\u00e5 svinge inn.",
     "helm.layout.basin": "Basseng \u2014 vidt inne, trangt utl\u00f8p.",
   },
 };
