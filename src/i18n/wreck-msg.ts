@@ -41,6 +41,7 @@ export const extraMsg: Record<string, Record<string, string>> = {
     "helm.alarm": "PANIC",
     "helm.goalSea": "SEA",
     "helm.goalBerth": "BERTH",
+    "map.resize": "Drag to resize the map",
   },
   nb: {
     "helm.wreckKicker": "VRAKRAPPORT",
@@ -84,5 +85,6 @@ export const extraMsg: Record<string, Record<string, string>> = {
     "helm.alarm": "PANIKK",
     "helm.goalSea": "SJ\u00d8",
     "helm.goalBerth": "KAI",
+    "map.resize": "Dra for \u00e5 endre st\u00f8rrelse p\u00e5 kartet",
   },
 };
