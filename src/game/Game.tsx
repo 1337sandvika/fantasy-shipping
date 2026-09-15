@@ -1,6 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronsDown, ChevronsUp, Settings } from "lucide-react";
-import { useT } from "@/i18n";
+import { maybeT, useT } from "@/i18n";
 import { MapCanvas } from "./MapCanvas";
 import { persist } from "./save";
 import { EventModal } from "./screens/EventModal";
@@ -79,6 +79,117 @@ export function Game() {
   return <CareerShell />;
 }
 
+const MAP_H_KEY = "poc-map-vh";
+const PANEL_W_KEY = "poc-panel-w";
+
+function readNum(key: string, fallback: number, min: number, max: number) {
+  try {
+    const n = Number(localStorage.getItem(key));
+    if (Number.isFinite(n)) return Math.min(max, Math.max(min, n));
+  } catch {
+    /* ignore */
+  }
+  return fallback;
+}
+
+function clamp(n: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, n));
+}
+
+function useMapSplit() {
+  const [mapVh, setMapVh] = useState(() => readNum(MAP_H_KEY, 36, 20, 58));
+  const [panelW, setPanelW] = useState(() => readNum(PANEL_W_KEY, 380, 260, 560));
+  const [stacked, setStacked] = useState(true);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 640px)");
+    const sync = () => setStacked(!mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  const setSplit = (next: { mapVh?: number; panelW?: number }) => {
+    if (next.mapVh != null) {
+      const v = clamp(next.mapVh, 20, 58);
+      setMapVh(v);
+      try {
+        localStorage.setItem(MAP_H_KEY, String(v));
+      } catch {
+        /* ignore */
+      }
+    }
+    if (next.panelW != null) {
+      const v = clamp(next.panelW, 260, 560);
+      setPanelW(v);
+      try {
+        localStorage.setItem(PANEL_W_KEY, String(v));
+      } catch {
+        /* ignore */
+      }
+    }
+  };
+  return { mapVh, panelW, stacked, setSplit };
+}
+
+function SplitHandle({
+  mapVh,
+  panelW,
+  onSplit,
+}: {
+  mapVh: number;
+  panelW: number;
+  onSplit: (next: { mapVh?: number; panelW?: number }) => void;
+}) {
+  const last = useRef<{ x: number; y: number } | null>(null);
+  const stacked = useRef(true);
+  const live = useRef({ mapVh, panelW });
+  live.current = { mapVh, panelW };
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 640px)");
+    const sync = () => {
+      stacked.current = !mq.matches;
+    };
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  return (
+    <div
+      role="separator"
+      aria-label={maybeT("map.resize")}
+      aria-orientation="horizontal"
+      className="relative z-20 flex h-4 w-full shrink-0 cursor-row-resize touch-none items-center justify-center border-y border-border bg-bg-elevated sm:h-auto sm:w-3.5 sm:cursor-col-resize sm:flex-col sm:border-x sm:border-y-0"
+      onPointerDown={(e) => {
+        e.preventDefault();
+        e.currentTarget.setPointerCapture(e.pointerId);
+        last.current = { x: e.clientX, y: e.clientY };
+      }}
+      onPointerMove={(e) => {
+        if (!last.current || !e.currentTarget.hasPointerCapture(e.pointerId)) return;
+        e.preventDefault();
+        const dx = e.clientX - last.current.x;
+        const dy = e.clientY - last.current.y;
+        last.current = { x: e.clientX, y: e.clientY };
+        if (stacked.current) {
+          live.current.mapVh = clamp(live.current.mapVh + (dy / Math.max(120, window.innerHeight)) * 100, 20, 58);
+          onSplit({ mapVh: live.current.mapVh });
+        } else {
+          live.current.panelW = clamp(live.current.panelW - dx, 260, 560);
+          onSplit({ panelW: live.current.panelW });
+        }
+      }}
+      onPointerUp={() => {
+        last.current = null;
+      }}
+      onPointerCancel={() => {
+        last.current = null;
+      }}
+      onDoubleClick={() => onSplit({ mapVh: 36, panelW: 380 })}
+    >
+      <span className="block h-1 w-10 rounded-full bg-muted sm:h-10 sm:w-1" />
+    </div>
+  );
+}
+
 function CareerShell() {
   const phase = useGame((s) => s.state.phase);
   const helm = useGame((s) => s.state.helm);
@@ -90,6 +201,7 @@ function CareerShell() {
   const t = useT();
   const locked = useIap((s) => s.gating && s.ready && !s.canPlay);
   const paywallOpen = useIap((s) => s.paywallOpen);
+  const { mapVh, panelW, stacked, setSplit } = useMapSplit();
 
   return (
     <div className="safe-pad relative flex h-dvh min-h-0 w-full min-w-0 max-w-full flex-col overflow-x-hidden overflow-y-hidden bg-bg text-fg">
@@ -100,7 +212,10 @@ function CareerShell() {
       </div>
       <StatusBanners />
       <div className="relative flex min-h-0 min-w-0 w-full flex-1 flex-col sm:flex-row">
-        <div className="relative h-[36vh] w-full min-w-0 shrink-0 sm:h-auto sm:min-h-0 sm:flex-1">
+        <div
+          className="relative w-full min-w-0 shrink-0 sm:h-auto sm:min-h-0 sm:flex-1"
+          style={stacked ? { height: `${mapVh}vh` } : undefined}
+        >
           <MapCanvas />
           <div className="absolute right-2 top-2 z-10 flex flex-col gap-1">
             <button
@@ -129,7 +244,11 @@ function CareerShell() {
             </div>
           ) : null}
         </div>
-        <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col sm:w-[380px] sm:max-w-[42vw] sm:flex-none">
+        <SplitHandle mapVh={mapVh} panelW={panelW} onSplit={setSplit} />
+        <div
+          className="flex min-h-0 min-w-0 w-full flex-1 flex-col sm:max-w-[48vw] sm:flex-none"
+          style={stacked ? undefined : { width: panelW }}
+        >
           <PortPanel />
         </div>
       </div>
