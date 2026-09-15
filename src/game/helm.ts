@@ -157,16 +157,39 @@ export function spawnCraft(kind: HelmJob["kind"], ship: Pick<Ship, "ceu" | "cond
 }
 function wrapPi(a: number) { let x = a; while (x > Math.PI) x -= Math.PI * 2; while (x < -Math.PI) x += Math.PI * 2; return x; }
 export function forward(heading: number) { return { x: -Math.sin(heading), y: Math.cos(heading) }; }
-function corners(c: HelmCraft) {
-  const f = forward(c.heading), rx = f.y, ry = -f.x, hl = c.length / 2, hb = c.beam / 2;
-  return [{ x: c.x + f.x * hl + rx * hb, y: c.y + f.y * hl + ry * hb }, { x: c.x + f.x * hl - rx * hb, y: c.y + f.y * hl - ry * hb }, { x: c.x - f.x * hl - rx * hb, y: c.y - f.y * hl - ry * hb }, { x: c.x - f.x * hl + rx * hb, y: c.y - f.y * hl + ry * hb }];
+/** Visual ship is a tapered hull at ~0.92 of length/beam. Collision sits inside that. */
+function hullPts(c: HelmCraft) {
+  const f = forward(c.heading), rx = f.y, ry = -f.x;
+  const hl = c.length * 0.40, hb = c.beam * 0.28;
+  const rings: [number, number][] = [[1, 0.16], [0.7, 0.62], [0.25, 1], [0, 1], [-0.25, 1], [-0.7, 0.62], [-1, 0.16]];
+  const pts: { x: number; y: number }[] = [];
+  for (const [along, across] of rings) {
+    pts.push({ x: c.x + f.x * hl * along + rx * hb * across, y: c.y + f.y * hl * along + ry * hb * across });
+    if (across !== 0) pts.push({ x: c.x + f.x * hl * along - rx * hb * across, y: c.y + f.y * hl * along - ry * hb * across });
+  }
+  return pts;
 }
-function inRect(p: { x: number; y: number }, r: Wall) { return p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h; }
+function inRect(p: { x: number; y: number }, r: Wall, pad = 0) {
+  return p.x > r.x + pad && p.x < r.x + r.w - pad && p.y > r.y + pad && p.y < r.y + r.h - pad;
+}
+function spine(c: Pick<HelmCraft, "x" | "y" | "heading" | "length">) {
+  const f = forward(c.heading), hl = c.length * 0.36;
+  return [-1, -0.5, 0, 0.5, 1].map((a) => ({ x: c.x + f.x * hl * a, y: c.y + f.y * hl * a }));
+}
 export function colliding(c: HelmCraft, harbor: Harbor): boolean {
-  const pts = corners(c);
-  if (pts.some((p) => harbor.walls.some((w) => inRect(p, w)))) return true;
-  if (pts.some((p) => harbor.buoys.some((b) => Math.hypot(p.x - b.x, p.y - b.y) < 1.05))) return true;
-  return harbor.traffic.some((t) => { const box = { x: t.x - t.beam / 2 - 0.2, y: t.y - t.length / 2 - 0.2, w: t.beam + 0.4, h: t.length + 0.4 }; return pts.some((p) => inRect(p, box)); });
+  const pts = hullPts(c);
+  if (pts.some((p) => harbor.walls.some((w) => inRect(p, w, 0.12)))) return true;
+  const mine = spine(c);
+  const cr = c.beam * 0.26;
+  return harbor.traffic.some((t) => {
+    const theirs = spine(t);
+    const lim = cr + t.beam * 0.26;
+    const lim2 = lim * lim;
+    return mine.some((p) => theirs.some((q) => {
+      const dx = p.x - q.x, dy = p.y - q.y;
+      return dx * dx + dy * dy < lim2;
+    }));
+  });
 }
 export function helmWon(c: HelmCraft, kind: HelmJob["kind"], harbor: Harbor): boolean {
   const last = harbor.segs[harbor.segs.length - 1]!;
