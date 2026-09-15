@@ -362,7 +362,23 @@ export function suggestedDestId(ship: Ship | null, lots: Lot[]): string | null {
 }
 
 export function canDrydock(portId: string): boolean {
-  return getPort(portId).yard;
+  return Boolean(getPort(portId));
+}
+
+export function drydockQuote(ship: Ship, portId: string) {
+  const yard = getPort(portId).yard;
+  const base = 18e4 + (100 - ship.condition) * 2200;
+  return { days: yard ? 8 : 12, cost: Math.round(base * (yard ? 1 : 1.55)), yard };
+}
+
+export function nearestYard(fromId: string) {
+  let best: { id: string; name: string; nm: number } | null = null;
+  for (const p of PORTS) {
+    if (!p.yard || p.id === fromId) continue;
+    const nm = seaRoute(fromId, p.id).nm;
+    if (!best || nm < best.nm) best = { id: p.id, name: p.name, nm };
+  }
+  return best;
 }
 
 export function lotFitsDeck(ship: Ship, lot: Lot): boolean {
