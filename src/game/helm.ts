@@ -177,8 +177,12 @@ function spine(c: Pick<HelmCraft, "x" | "y" | "heading" | "length">) {
   return [-1, -0.5, 0, 0.5, 1].map((a) => ({ x: c.x + f.x * hl * a, y: c.y + f.y * hl * a }));
 }
 export function colliding(c: HelmCraft, harbor: Harbor): boolean {
-  const pts = hullPts(c);
-  if (pts.some((p) => harbor.walls.some((w) => inRect(p, w, 0.12)))) return true;
+  return hitsWall(c, harbor) || hitsTraffic(c, harbor);
+}
+function hitsWall(c: HelmCraft, harbor: Harbor): boolean {
+  return hullPts(c).some((p) => harbor.walls.some((w) => inRect(p, w, 0.14)));
+}
+function hitsTraffic(c: HelmCraft, harbor: Harbor): boolean {
   const mine = spine(c);
   const cr = c.beam * 0.26;
   return harbor.traffic.some((t) => {
@@ -221,12 +225,37 @@ export function stepCraft(c: HelmCraft, a: HelmActions, harbor: Harbor, dt: numb
   const rev = speed >= 0 ? 1 : -1;
   const heading = wrapPi(c.heading + steer * c.turnRate * Math.max(0.2, sf) * rev * dt);
   const f = forward(heading);
-  const next = { ...c, x: c.x + f.x * speed * dt + nextH.current * 0.62 * dt + nextH.wind * 0.28 * dt, y: c.y + f.y * speed * dt, heading, speed };
+  const next = { ...c, x: c.x + f.x * speed * dt + nextH.current * 0.22 * dt + nextH.wind * 0.1 * dt, y: c.y + f.y * speed * dt, heading, speed };
   if (!colliding(next, nextH)) return { craft: next, harbor: nextH, hit: false };
-  const bounced = { ...c, speed: -c.speed * 0.22, x: c.x - f.x * 0.4, y: c.y - f.y * 0.4 };
-  const v = Math.abs(c.speed);
-  const hit: HelmHit = v > 3.6 ? "sink" : v > 2.05 ? "scrape" : false;
-  return { craft: colliding(bounced, nextH) ? { ...c, speed: 0 } : bounced, harbor: nextH, hit };
+  if (hitsTraffic(next, nextH)) {
+    const bounced = { ...c, speed: -c.speed * 0.22, x: c.x - f.x * 0.4, y: c.y - f.y * 0.4 };
+    const v = Math.abs(c.speed);
+    const hit: HelmHit = v > 3.8 ? "sink" : v > 2.6 ? "scrape" : false;
+    return { craft: colliding(bounced, nextH) ? { ...c, speed: 0 } : bounced, harbor: nextH, hit };
+  }
+  const onlyX = { ...next, y: c.y };
+  const onlyY = { ...next, x: c.x };
+  const okX = !hitsWall(onlyX, nextH);
+  const okY = !hitsWall(onlyY, nextH);
+  const inv = 1 / Math.max(dt, 1 / 120);
+  let slid = next;
+  let impact = 0;
+  if (okX && okY) {
+    slid = Math.abs(next.y - c.y) >= Math.abs(next.x - c.x) ? onlyY : onlyX;
+  } else if (okX) {
+    slid = onlyX;
+    impact = Math.abs(next.y - c.y) * inv;
+  } else if (okY) {
+    slid = onlyY;
+    impact = Math.abs(next.x - c.x) * inv;
+  } else {
+    slid = { ...c, heading, speed: 0 };
+    impact = Math.hypot(next.x - c.x, next.y - c.y) * inv;
+  }
+  const hit: HelmHit = impact > 4.4 ? "sink" : impact > 3.15 ? "scrape" : false;
+  if (!hit) return { craft: { ...slid, speed: slid.speed * (okX && okY ? 1 : 0.88) }, harbor: nextH, hit: false };
+  const bounced = { ...c, speed: -c.speed * 0.18, x: c.x - f.x * 0.35, y: c.y - f.y * 0.35 };
+  return { craft: hitsWall(bounced, nextH) ? { ...c, heading, speed: 0 } : bounced, harbor: nextH, hit };
 }
 export function actionsFromKeys(keys: Set<string>, probeSteer: number | null): HelmActions {
   let throttle = 0, steer = 0;
