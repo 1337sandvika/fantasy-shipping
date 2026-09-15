@@ -263,6 +263,7 @@ function CareerShell() {
 
 function StatusBanners() {
   const s = useGame((g) => g.state);
+  const setTab = useGame((g) => g.setTab);
   const ship = activeShip(s);
   const t = useT();
   if (s.phase === "event" || s.helm) return null;
@@ -282,7 +283,13 @@ function StatusBanners() {
       ) : null}
       {tcOverdue ? <span className="text-warn">{t("tc.overdueLoad")}</span> : null}
       {ddWarn ? (
-        <span className={left < 0 ? "text-danger" : "text-warn"}>{t("hud.drydock", { n: Math.round(left) })}</span>
+        <button
+          type="button"
+          className={left < 0 ? "text-danger underline" : "text-warn underline"}
+          onClick={() => setTab("cargo")}
+        >
+          {t("hud.drydock", { n: Math.round(left) })}
+        </button>
       ) : null}
       {heatWarn ? <span className="text-warn">{t("lot.grey")}</span> : null}
       {etsWarn ? <span className="text-warn">{t("ets.title")}</span> : null}

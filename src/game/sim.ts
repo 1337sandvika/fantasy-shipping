@@ -10,9 +10,9 @@ import {
   bargeQuote,
   bunkerSurveyValue,
   burnPerNm,
-  canDrydock,
   canLoadLot,
   canTakeLoan,
+  drydockQuote,
   etsFactor,
   fleetReachNm,
   fullTankRangeNm,
@@ -29,6 +29,14 @@ import { pilotFee } from "./helm";
 
 let seq = 1;
 const uid = (p: string) => `${p}-${seq++}-${Math.random().toString(36).slice(2, 6)}`;
+
+/** Pay cash; shortfall goes on the yard's book at 12 %. Never blocks the action. */
+function payOrCredit(s, cost) {
+  const paid = Math.min(Math.max(0, s.cash), Math.max(0, cost));
+  const owe = Math.max(0, cost - paid);
+  const credited = owe ? Math.round(owe * 1.12) : 0;
+  return { cash: s.cash - paid, debt: (s.debt ?? 0) + credited, credited };
+}
 
 function log(s: GameState, key: MsgKey, vars?: Record<string, string | number>) {
   s.log = [{ day: s.day, text: t(key, vars) }, ...s.log].slice(0, 80);
@@ -957,6 +965,27 @@ export function dischargeHere(s) {
   return maybeEnd(next);
 }
 
+export function transshipHere(s) {
+  const ship = activeShip(s);
+  if (!ship || ship.atSea) return s;
+  const through = ship.hold.filter((l) => l.dest !== ship.port);
+  if (!through.length) return s;
+  const ceu = through.reduce((a, l) => a + l.ceu, 0);
+  const fee = Math.round(ceu * 14);
+  const bill = payOrCredit(s, fee);
+  const quay = [...(s.lots[ship.port] ?? []), ...through.map((l) => ({ ...l, id: uid("lot"), rate: Math.round(l.rate * 0.92), deadline: l.deadline + 4 }))];
+  const next = {
+    ...s,
+    cash: bill.cash,
+    debt: bill.debt,
+    lots: { ...s.lots, [ship.port]: quay },
+    fleet: s.fleet.map((sh) => (sh.id === ship.id ? { ...sh, hold: sh.hold.filter((l) => l.dest === ship.port) } : sh)),
+  };
+  log(next, "log.transship", { ceu, port: portName(ship.port), n: fee });
+  if (bill.credited) log(next, "log.yardCredit", { n: bill.credited });
+  return next;
+}
+
 const CEU_MARKS = [4000, 12000, 30000, 60000];
 
 function maybeHonours(s, onTimeBrands, streak, ceuBefore, ceuAfter) {
@@ -1158,31 +1187,32 @@ export function repair(s) {
 }
 export function drydock(s) {
   const ship = activeShip(s);
-  if (!ship || ship.atSea || !canDrydock(ship.port)) return s;
-  const days = 8;
-  const cost = 18e4 + (100 - ship.condition) * 2200;
-  if (s.cash < cost) return s;
+  if (!ship || ship.atSea) return s;
+  const q = drydockQuote(ship, ship.port);
+  const bill = payOrCredit(s, q.cost);
   let next = {
     ...s,
-    cash: s.cash - cost,
-    day: s.day + days,
+    cash: bill.cash,
+    debt: bill.debt,
+    day: s.day + q.days,
     fleet: s.fleet.map((sh) =>
       sh.id === ship.id
         ? {
             ...sh,
             condition: 100,
-            lastDrydock: s.day + days,
+            lastDrydock: s.day + q.days,
             bunkers: Math.max(0, sh.bunkers - 12),
           }
         : sh,
     ),
   };
-  log(next, "log.drydock", { name: ship.name, port: portName(ship.port), days, cost });
+  log(next, "log.drydock", { name: ship.name, port: portName(ship.port), days: q.days, cost: q.cost });
+  if (bill.credited) log(next, "log.yardCredit", { n: bill.credited });
   refreshMarket(next);
   refreshTc(next);
-  next = tickOpex(next, days);
-  next = tickCharters(next, days);
-  next = advanceLegs(next, days, false);
+  next = tickOpex(next, q.days);
+  next = tickCharters(next, q.days);
+  next = advanceLegs(next, q.days, false);
   next = tickBarges(next);
   return maybeEts(next);
 }
@@ -1355,7 +1385,7 @@ export function sailCheck(s, dest) {
   if (ship.atSea) return "sail.notPort";
   if (dest === ship.port) return "sail.here";
   if (ship.condition < 18) return "sail.repair";
-  if (s.day - ship.lastDrydock > 400) return "sail.classing";
+  if (s.day - ship.lastDrydock > 400 && !getPort(dest).yard) return "sail.classing";
   const { nm } = seaRoute(ship.port, dest);
   const need = burnPerNm(ship) * nm * 1.08;
   if (ship.bunkers + 0.3 < need) return "sail.bunkers";

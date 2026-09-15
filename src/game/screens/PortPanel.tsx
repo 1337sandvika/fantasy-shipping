@@ -35,6 +35,9 @@ import {
   bunkerPlanFor,
   bargeQuote,
   bargeLeft,
+  drydockQuote,
+  drydockLeft,
+  nearestYard,
 } from "../fleet";
 import { daysLeft, formatDate, money, qty, qty1, qty3 } from "../format";
 import { inEurope } from "../geo";
@@ -310,6 +313,8 @@ function CargoTab() {
   const s = useGame((g) => g.state);
   const load = useGame((g) => g.load);
   const discharge = useGame((g) => g.discharge);
+  const transship = useGame((g) => g.transship);
+  const drydock = useGame((g) => g.drydock);
   const sail = useGame((g) => g.sail);
   const selectPort = useGame((g) => g.selectPort);
   const wait = useGame((g) => g.wait);
@@ -320,11 +325,16 @@ function CargoTab() {
   const lots = s.lots[s.selectedPort] ?? [];
   const dest = suggestedDestId(ship, ship ? (s.lots[ship.port] ?? []) : lots);
   const holdHere = ship?.hold.filter((l) => l.dest === ship.port) ?? [];
+  const through = ship?.hold.filter((l) => l.dest !== ship.port) ?? [];
+  const throughCeu = through.reduce((a, l) => a + l.ceu, 0);
+  const transFee = Math.round(throughCeu * 14);
   const dests = ship ? destSummary(ship.hold) : [];
   const boardPay = ship ? ship.hold.reduce((a, l) => a + lotPay(l), 0) : 0;
   const duePay = holdHere.reduce((a, l) => a + lotPay(l), 0);
   const dueCeu = holdHere.reduce((a, l) => a + l.ceu, 0);
   const atSea = Boolean(ship?.atSea);
+  const classLeft = ship ? drydockLeft(ship, s.day) : 99;
+  const dd = ship && !atSea ? drydockQuote(ship, ship.port) : null;
   const hire = ship ? (s.charters ?? []).find((c) => c.shipId === ship.id && c.kind === "in") : null;
   const hireOverdue = Boolean(hire && s.day + 1e-6 >= hire.untilDay);
   const leg = activeLeg(s);
@@ -336,6 +346,20 @@ function CargoTab() {
     <div className="space-y-4">
       {!ship ? <p className="text-sm text-warn">{t("hint.buy")}</p> : null}
       <DistressCard />
+      {dd && classLeft <= 40 ? (
+        <div className="rounded-md border border-warn/40 bg-warn/10 p-3">
+          <p className="text-[10px] uppercase tracking-wider text-warn">
+            {classLeft < 0 ? maybeT("yard.classOver") : maybeT("yard.classSoon", { n: Math.round(classLeft) })}
+          </p>
+          <p className="mt-1 text-xs text-muted">
+            {dd.yard ? maybeT("yard.ddYard", { days: dd.days }) : maybeT("yard.ddAway", { days: dd.days })}
+          </p>
+          <Button className="mt-2 w-full" onClick={drydock}>
+            {t("yard.drydock")} · {money(dd.cost)} · {dd.days}d
+          </Button>
+          {s.cash < dd.cost ? <p className="mt-1 text-[11px] text-subtle">{maybeT("yard.ddCredit")}</p> : null}
+        </div>
+      ) : null}
       <p className="text-xs italic text-subtle">{t(mood)}</p>
       {!pickedAway && ship && remainingCeu(ship) === ship.ceu && lots.length ? <p className="text-xs text-subtle">{t("hint.fill")}</p> : null}
       {!pickedAway && ship && lots.length && lots.filter((l) => !lotFitsDeck(ship, l)).length > lots.length * 0.5 ? (
@@ -372,10 +396,16 @@ function CargoTab() {
         <Button className="w-full" onClick={discharge}>
           {t("act.discharge")} · {qty(dueCeu)} CEU · {money(duePay)}
         </Button>
-      ) : !pickedAway && ship && !atSea && ship.hold.length && getPort(ship.port).hub ? (
-        <Button className="w-full" variant="secondary" onClick={discharge}>
-          {t("act.transship")}
-        </Button>
+      ) : null}
+      {ship && !atSea && through.length ? (
+        <div>
+          <Button className="w-full" onClick={transship}>
+            {t("act.transship")} · {qty(throughCeu)} CEU · {money(transFee)}
+          </Button>
+          <p className="mt-1 text-[11px] text-subtle">
+            {s.cash < transFee ? maybeT("yard.ddCredit") : maybeT("act.transshipHint")}
+          </p>
+        </div>
       ) : null}
       {ship && !atSea && topDest ? (
         <SailCard destId={topDest} rec={topDest === dest} picked={pickedAway} ship={ship} sail={sail} err={err} setErr={setErr} />
@@ -663,12 +693,17 @@ function YardTab() {
   const rename = useGame((g) => g.rename);
   const repair = useGame((g) => g.repair);
   const drydock = useGame((g) => g.drydock);
+  const sail = useGame((g) => g.sail);
+  const selectPort = useGame((g) => g.selectPort);
   const upgrade = useGame((g) => g.upgrade);
   const t = useT();
   const [ren, setRen] = useState("");
   const [sellId, setSellId] = useState<string | null>(null);
   const ship = activeShip(s);
   const repairCost = ship ? Math.round((100 - ship.condition) * 2800) : 0;
+  const dd = ship && !ship.atSea ? drydockQuote(ship, ship.port) : null;
+  const classLeft = ship ? drydockLeft(ship, s.day) : 99;
+  const yardSail = ship && dd && !dd.yard ? nearestYard(ship.port) : null;
   const cheapId = ship && cashTight(s, ship) ? cheaperOffer(s, ship)?.id : null;
   const tight = cashTight(s, ship);
   return (
@@ -757,10 +792,39 @@ function YardTab() {
               {t("yard.repair")}
               {ship.condition < 99 ? ` · ${money(repairCost)}` : ""}
             </Button>
-            <Button className="flex-1" variant="secondary" disabled={ship.atSea || !getPort(ship.port).yard} onClick={drydock}>
+            <Button
+              className="flex-1"
+              variant={classLeft <= 40 ? "default" : "secondary"}
+              disabled={ship.atSea}
+              onClick={drydock}
+            >
               {t("yard.drydock")}
+              {dd ? ` · ${money(dd.cost)}` : ""}
             </Button>
           </div>
+          {dd ? (
+            <p className="text-xs text-muted">
+              {dd.yard
+                ? maybeT("yard.ddYard", { days: dd.days })
+                : maybeT("yard.ddAway", { days: dd.days })}
+              {classLeft <= 40
+                ? ` · ${classLeft < 0 ? maybeT("yard.classOver") : maybeT("yard.classSoon", { n: Math.round(classLeft) })}`
+                : ""}
+              {s.cash < dd.cost ? ` · ${maybeT("yard.ddCredit")}` : ""}
+            </p>
+          ) : null}
+          {yardSail ? (
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={() => {
+                selectPort(yardSail.id);
+                sail(yardSail.id);
+              }}
+            >
+              {maybeT("yard.sailYard", { name: yardSail.name, nm: qty(Math.round(yardSail.nm)) })}
+            </Button>
+          ) : null}
           <div className="rounded-md border border-border bg-surface px-3 py-2 text-xs">
             <p className="text-[10px] uppercase tracking-wider text-subtle">{t("yard.stats")}</p>
             <p className="mt-1 tabular-nums text-muted">

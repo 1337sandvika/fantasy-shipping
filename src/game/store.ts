@@ -10,6 +10,7 @@ import {
   renameShip,
   loadLot,
   dischargeHere,
+  transshipHere,
   bunker,
   repair,
   drydock,
@@ -62,6 +63,7 @@ type Store = {
   rename: (id: string, name: string) => void;
   load: (lotId: string) => void;
   discharge: () => void;
+  transship: () => void;
   bunker: (tons: number) => void;
   offerBarge: () => void;
   waitBarge: () => void;
@@ -195,6 +197,12 @@ export const useGame = create<Store>((set, get) => ({
       stash(state);
       foghorn();
     }
+  },
+  transship: () => {
+    const state = transshipHere(get().state);
+    persist(state);
+    set({ state });
+    blip(240);
   },
   bunker: (tons) => {
     const state = bunker(get().state, tons);
