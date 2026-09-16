@@ -85,7 +85,7 @@ export type EventPick = {
   title: string;
   body: string;
   a: { id: string; label: string; hint: string };
-  b: { id: string; label: string; hint: string };
+  b?: { id: string; label: string; hint: string };
   payload?: { cash?: number; brand?: string; n?: number; kind?: HonourKind };
   vars?: Record<string, string | number>;
 };

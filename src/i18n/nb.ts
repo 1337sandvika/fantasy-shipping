@@ -776,9 +776,9 @@ export const nb: Record<MsgKey, string> = {
   "event.fog.radarHint": "kollisjonsrisiko",
   "event.arrest.title": "Arrestert. Kaffen er verre her.",
   "event.arrest.body":
-    "Bløffen sprakk. Havnepolitiet tar skipet. Grå last beslaglegges, du bøtelegges, og skipet ligger ti dager mens saken finner en stiftemaskin.",
-  "event.arrest.serve": "Sone arresten",
-  "event.arrest.hint": "dager + bot",
+    "Bløffen sprakk. Havnepolitiet tar skipet. Registerretten vil ha en dart. Grå last er fortsatt om bord — foreløpig. Én knapp. Så geometri.",
+  "event.arrest.serve": "Til registerretten",
+  "event.arrest.hint": "darten venter",
   "event.pilot.title": "Los. Solbriller i daggry.",
   "event.pilot.body":
     "Losen klatret trappen med kaffe, solbriller og et forslag om at kaffen bør «støttes». Bare kontant. Eller vent på en mindre kunstnerisk.",

@@ -58,26 +58,7 @@ export function CourtOverlay() {
       ctx.translate(cx, cy);
       drawCabinet(ctx, R);
       drawSisal(ctx, R);
-      ctx.beginPath();
-      ctx.arc(0, 0, bull * R * 2.0, 0, Math.PI * 2);
-      ctx.strokeStyle = WARN;
-      ctx.globalAlpha = 0.55;
-      ctx.lineWidth = 2;
-      ctx.setLineDash([4, 3]);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.beginPath();
-      ctx.arc(0, 0, bull * R, 0, Math.PI * 2);
-      ctx.strokeStyle = ACCENT;
-      ctx.globalAlpha = 1;
-      ctx.lineWidth = 3;
-      ctx.setLineDash([5, 4]);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.beginPath();
-      ctx.arc(0, 0, Math.max(4, bull * R * 0.28), 0, Math.PI * 2);
-      ctx.fillStyle = ACCENT;
-      ctx.fill();
+      drawTarget(ctx, R, bull, t, reduced.current);
       const speed = reduced.current ? 1.2 : 2.55;
       const st = live.current;
       const aiming = trial?.phase === "throw" && (st.axis === "x" || st.axis === "y");
@@ -89,24 +70,48 @@ export function CourtOverlay() {
       const x = st.axis === "fly" || st.axis === "done" ? st.x : st.axis === "y" ? st.x : st.x;
       const y = st.axis === "fly" || st.axis === "done" ? st.y : st.axis === "y" ? st.y : 0;
       if (aiming) {
-        ctx.strokeStyle = FG;
-        ctx.globalAlpha = 0.9;
-        ctx.lineWidth = 2;
+        const aimX = st.x * R;
+        const aimY = st.axis === "y" ? st.y * R : 0;
+        const onBull = Math.hypot(st.x, st.axis === "y" ? st.y : 0) <= bull;
+        const onX = Math.abs(st.x) <= bull;
+        ctx.lineWidth = 3;
+        ctx.setLineDash([]);
         if (st.axis === "x") {
+          ctx.strokeStyle = onX ? ACCENT : FG;
+          ctx.globalAlpha = 0.95;
           ctx.beginPath();
-          ctx.moveTo(st.x * R, -R * 1.08);
-          ctx.lineTo(st.x * R, R * 1.08);
+          ctx.moveTo(aimX, -R * 1.08);
+          ctx.lineTo(aimX, R * 1.08);
           ctx.stroke();
+          ctx.fillStyle = onX ? ACCENT : FG;
+          ctx.beginPath();
+          ctx.arc(aimX, 0, onX ? 8 : 5, 0, Math.PI * 2);
+          ctx.fill();
         } else {
+          ctx.strokeStyle = onBull ? ACCENT : FG;
+          ctx.globalAlpha = 0.95;
           ctx.beginPath();
-          ctx.moveTo(-R * 1.08, st.y * R);
-          ctx.lineTo(R * 1.08, st.y * R);
+          ctx.moveTo(-R * 1.08, aimY);
+          ctx.lineTo(R * 1.08, aimY);
           ctx.stroke();
-          ctx.globalAlpha = 0.45;
+          ctx.globalAlpha = 0.4;
+          ctx.strokeStyle = onX ? ACCENT : FG;
           ctx.beginPath();
-          ctx.moveTo(st.x * R, -R * 1.08);
-          ctx.lineTo(st.x * R, R * 1.08);
+          ctx.moveTo(aimX, -R * 1.08);
+          ctx.lineTo(aimX, R * 1.08);
           ctx.stroke();
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = onBull ? ACCENT : FG;
+          ctx.beginPath();
+          ctx.arc(aimX, aimY, onBull ? 9 : 6, 0, Math.PI * 2);
+          ctx.fill();
+          if (onBull) {
+            ctx.strokeStyle = FG;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(aimX, aimY, 14, 0, Math.PI * 2);
+            ctx.stroke();
+          }
         }
         ctx.globalAlpha = 1;
       }
@@ -251,7 +256,16 @@ export function CourtOverlay() {
           {axis === "fly" ? <p className="text-sm text-muted">{maybeT("court.flying")}</p> : null}
           {(axis === "x" || axis === "y") && phase === "throw" ? (
             <>
-              <p className="text-sm text-muted">{axis === "y" ? maybeT("court.lockHintY") : maybeT("court.lockHintX")}</p>
+              <p className="text-sm text-fg">{maybeT("court.bull")}</p>
+              <p className="text-xs text-muted">{axis === "y" ? maybeT("court.lockHintY") : maybeT("court.lockHintX")}</p>
+              <ul className="space-y-0.5 text-xs text-muted">
+                <li>
+                  <span className="text-accent">{maybeT("court.zone.bull")}</span>
+                </li>
+                <li>{maybeT("court.zone.ring")}</li>
+                <li>{maybeT("court.zone.board")}</li>
+                <li>{maybeT("court.zone.miss")}</li>
+              </ul>
               <Button className="w-full" onClick={onLock}>
                 {axis === "x" ? maybeT("court.lockX") : maybeT("court.lockY")}
               </Button>
@@ -360,6 +374,53 @@ function drawCabinet(ctx: CanvasRenderingContext2D, R: number) {
 }
 
 const DART_NUMS = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
+
+function drawTarget(ctx: CanvasRenderingContext2D, R: number, bull: number, t: number, reduced: boolean) {
+  const slapR = bull * 2 * R;
+  const bullR = bull * R;
+  ctx.beginPath();
+  ctx.arc(0, 0, slapR, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(196,165,116,0.28)";
+  ctx.fill();
+  ctx.strokeStyle = WARN;
+  ctx.lineWidth = 2.5;
+  ctx.setLineDash([5, 3]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  const pulse = reduced ? 0.55 : 0.42 + 0.28 * (0.5 + 0.5 * Math.sin(t * 4.2));
+  const glowR = Math.max(bullR * 1.8, 16);
+  const glow = ctx.createRadialGradient(0, 0, Math.max(1, bullR * 0.2), 0, 0, glowR);
+  glow.addColorStop(0, `rgba(255,210,140,${0.55 + pulse * 0.35})`);
+  glow.addColorStop(0.45, `rgba(232,93,4,${pulse})`);
+  glow.addColorStop(1, "rgba(232,93,4,0)");
+  ctx.beginPath();
+  ctx.arc(0, 0, glowR, 0, Math.PI * 2);
+  ctx.fillStyle = glow;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(0, 0, bullR, 0, Math.PI * 2);
+  ctx.fillStyle = `rgba(232,93,4,${0.55 + pulse * 0.35})`;
+  ctx.fill();
+  ctx.strokeStyle = "#ede6d9";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(0, 0, Math.max(4, bullR * 0.32), 0, Math.PI * 2);
+  ctx.fillStyle = FG;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(0, 0, Math.max(2.5, bullR * 0.14), 0, Math.PI * 2);
+  ctx.fillStyle = ACCENT;
+  ctx.fill();
+  ctx.strokeStyle = "rgba(237,230,217,0.85)";
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(-bullR * 1.25, 0);
+  ctx.lineTo(bullR * 1.25, 0);
+  ctx.moveTo(0, -bullR * 1.25);
+  ctx.lineTo(0, bullR * 1.25);
+  ctx.stroke();
+}
 
 function drawSisal(ctx: CanvasRenderingContext2D, R: number) {
   const dark = "#1a3a22";

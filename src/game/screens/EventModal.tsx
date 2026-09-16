@@ -13,6 +13,11 @@ export function EventModal() {
   const capKey = `event.cap.${ev.id}` as MsgKey;
   const cap = maybeT(capKey);
   const verdict = ev.id === "verdict";
+  const aLabel = maybeT(ev.a.label, ev.vars);
+  const aHint = maybeT(ev.a.hint, ev.vars);
+  const bLabel = ev.b ? maybeT(ev.b.label, ev.vars) : "";
+  const bHint = ev.b ? maybeT(ev.b.hint, ev.vars) : "";
+  const showB = Boolean(ev.b) && ev.b!.id !== ev.a.id && `${bLabel}\0${bHint}` !== `${aLabel}\0${aHint}`;
   return (
     <div className="fixed inset-0 z-40 grid place-items-center bg-bg/80 p-4">
       <div className="w-full max-w-lg overflow-hidden rounded-xl border border-border bg-bg-elevated shadow-panel">
@@ -38,13 +43,15 @@ export function EventModal() {
           )}
           <div className="mt-5 flex flex-col gap-2">
             <Button onClick={() => choose(ev.a.id)}>
-              {maybeT(ev.a.label, ev.vars)}
-              <span className="ml-2 text-xs opacity-70">{maybeT(ev.a.hint, ev.vars)}</span>
+              {aLabel}
+              <span className="ml-2 text-xs opacity-70">{aHint}</span>
             </Button>
-            <Button variant="secondary" onClick={() => choose(ev.b.id)}>
-              {maybeT(ev.b.label, ev.vars)}
-              <span className="ml-2 text-xs opacity-70">{maybeT(ev.b.hint, ev.vars)}</span>
-            </Button>
+            {showB ? (
+              <Button variant="secondary" onClick={() => choose(ev.b!.id)}>
+                {bLabel}
+                <span className="ml-2 text-xs opacity-70">{bHint}</span>
+              </Button>
+            ) : null}
           </div>
         </div>
       </div>

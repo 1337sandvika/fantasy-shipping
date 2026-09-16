@@ -1891,12 +1891,9 @@ export function pickEvent(s) {
 export function resolveEvent(s, choice) {
   const ev = s.event;
   if (!ev) return s;
-  if (ev.id === "arrest")
-    return {
-      ...s,
-      phase: "port",
-      event: null,
-    };
+  if (ev.id === "arrest") {
+    return beginTrial({ ...s, phase: "port", event: null });
+  }
   if (ev.id === "rumor") {
     let next = { ...s, phase: "port", event: null };
     if (choice === "lay") {
@@ -2248,8 +2245,13 @@ function arrest(s) {
   const ship = activeShip(s);
   let next = {
     ...s,
-    phase: "port",
-    event: null,
+    phase: "event",
+    event: {
+      id: "arrest",
+      title: "event.arrest.title",
+      body: "event.arrest.body",
+      a: { id: "serve", label: "event.arrest.serve", hint: "event.arrest.hint" },
+    },
     legs: s.legs.filter((v) => v.shipId !== ship?.id),
     fleet: s.fleet.map((sh) =>
       sh.id === ship?.id
@@ -2262,7 +2264,7 @@ function arrest(s) {
     ),
   };
   if (ship) log(next, "log.court.summons", { port: portName(ship.port) });
-  return beginTrial(next);
+  return next;
 }
 
 export function maybeHeatBeat(s) {
