@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { authEnabled } from "@/lib/auth/client";
+import { authEnabled } from "@/lib/auth/enabled";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { requirePlay, useIap } from "@/lib/iap";
 import { useT, type MsgKey } from "@/i18n";

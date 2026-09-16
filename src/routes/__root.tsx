@@ -33,10 +33,6 @@ export const Route = createRootRoute({
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/__grok/manifest.webmanifest" },
       { rel: "apple-touch-icon", href: "/__grok/icon-180.png" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&family=Noto+Sans:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600&family=Noto+Sans+Devanagari:wght@400;500;600&display=swap",
-      },
     ],
   }),
   component: RootDocument,
@@ -53,6 +49,12 @@ function RootDocument() {
         <HeadContent />
       </head>
       <body className="antialiased">
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              '(function(){if(window.parent===window)return;var c=[];try{if(document.referrer)c.push(document.referrer)}catch(e){}try{if(location.ancestorOrigins&&location.ancestorOrigins.length)c.push(location.ancestorOrigins[0])}catch(e){}function ok(h){h=String(h).toLowerCase();return h==="grok.com"||h.slice(-9)===".grok.com"||h==="grok.me"||h.slice(-8)===".grok.me"||h==="localhost"||h==="127.0.0.1"||h==="[::1]"}for(var i=0;i<c.length;i++){try{var u=new URL(c[i].indexOf("://")>=0?c[i]:("https://"+c[i]));if(u.protocol!=="https:"&&u.protocol!=="http:")continue;if(!ok(u.hostname))continue;var o=u.origin;function send(t,x){var m={channel:"grok-preview-bridge",version:1,type:t};if(x)for(var k in x)m[k]=x[k];window.parent.postMessage(m,o)}send("location",{path:location.pathname||"/",search:location.search,hash:location.hash});send("ready");return}catch(e){}}})();',
+          }}
+        />
         <PreviewHostBridge />
         <AuthProvider>
           <I18nBoot />

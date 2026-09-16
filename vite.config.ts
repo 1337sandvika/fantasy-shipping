@@ -150,6 +150,9 @@ export default defineConfig(({ command, isPreview }) => ({
     host: "0.0.0.0",
     port: 8080,
     strictPort: true,
+    allowedHosts: true,
+    hmr: { overlay: false },
+    ws: { path: "/__vite_hmr" },
   },
   preview: {
     host: "127.0.0.1",

@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { Copy, Home, Settings, Share2, Trophy, Volume2, VolumeX, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LOCALES, setLocale, useLocale, useT, errMsg } from "@/i18n";
-import { authEnabled, signOut } from "@/lib/auth/client";
+import { authEnabled } from "@/lib/auth/enabled";
 import { hasGateSessionMarker } from "@/lib/auth/gate-session-marker";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { cn } from "@/lib/utils";
@@ -137,7 +137,9 @@ export function SettingsSheet() {
                     disabled={signingOut}
                     onClick={() => {
                       setSigningOut(true);
-                      void signOut().catch(() => setSigningOut(false));
+                      void import("@/lib/auth/client")
+                        .then((m) => m.signOut())
+                        .catch(() => setSigningOut(false));
                     }}
                     className="shrink-0 text-xs text-muted underline-offset-4 hover:text-fg hover:underline"
                   >

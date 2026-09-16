@@ -1,4 +1,5 @@
-import { authClient, authEnabled } from "./client";
+import { useEffect, useState } from "react";
+import { authEnabled } from "./enabled";
 
 /** Normalized user shape used across the app, auth on or off. */
 export type AppUser = {
@@ -33,12 +34,56 @@ export type CurrentUserState = {
   isPending: boolean;
 };
 
+function fromAuthUser(user: {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+}): AppUser {
+  return {
+    id: user.id,
+    displayName: user.name ?? null,
+    primaryEmail: user.email ?? null,
+    profileImageUrl: user.image ?? null,
+    isDevFallback: false,
+  };
+}
+
+/**
+ * Auth-on session without a static `./client` import — Vite dev otherwise
+ * pulls the entire better-auth graph into the title screen and the preview
+ * chrome sits on a spinner until those 100+ modules finish.
+ */
+function useAuthOnSession(): CurrentUserState {
+  const [st, setSt] = useState<CurrentUserState>({ user: null, isPending: true });
+  useEffect(() => {
+    let live = true;
+    void import("./client").then(async ({ authClient }) => {
+      try {
+        const { data } = await authClient.getSession();
+        if (!live) return;
+        const user = data?.user;
+        setSt({
+          isPending: false,
+          user: user ? fromAuthUser(user) : null,
+        });
+      } catch {
+        if (live) setSt({ user: null, isPending: false });
+      }
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+  return st;
+}
+
 /**
  * Current user + loading state. Same behavior in live preview and when deployed:
  *   - Auth enabled -> the real signed-in user; `user` is `null` while
  *                            the session resolves (`isPending: true`) and when
  *                            signed out (`isPending: false`). Session comes from
- *                            Better Auth `useSession()` → `/api/auth/get-session`
+ *                            Better Auth `getSession()` → `/api/auth/get-session`
  *                            (cookie when deployed; bearer in live preview).
  *   - Auth disabled (`VITE_AUTH_ENABLED=false`) -> `DEV_USER`, never pending.
  *
@@ -57,20 +102,7 @@ export type CurrentUserState = {
 export function useCurrentUserState(): CurrentUserState {
   if (!authEnabled) return { user: DEV_USER, isPending: false };
   // eslint-disable-next-line react-hooks/rules-of-hooks -- authEnabled is constant for the app's lifetime
-  const { data, isPending } = authClient.useSession();
-  const user = data?.user;
-  return {
-    user: user
-      ? {
-          id: user.id,
-          displayName: user.name ?? null,
-          primaryEmail: user.email ?? null,
-          profileImageUrl: user.image ?? null,
-          isDevFallback: false,
-        }
-      : null,
-    isPending,
-  };
+  return useAuthOnSession();
 }
 
 /**

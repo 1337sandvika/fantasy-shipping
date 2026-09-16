@@ -138,3 +138,8 @@ html.font-el {
     text-wrap: pretty;
   }
 }
+
+/* Preview iframe: never cover the game with Vite's reconnect overlay. */
+vite-error-overlay {
+  display: none !important;
+}

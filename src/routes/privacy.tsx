@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { signOut } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { useT } from "@/i18n";
 import { LanguageSwitch } from "@/i18n/LanguageSwitch";
@@ -25,9 +24,12 @@ function Privacy() {
     try {
       await deleteMyAccount({ data: {} });
       setNote(t("privacy.deleted"));
-      await signOut("/").catch(() => {
+      try {
+        const { signOut } = await import("@/lib/auth/client");
+        await signOut("/");
+      } catch {
         window.location.href = "/";
-      });
+      }
     } catch {
       setBusy(false);
       setNote(t("privacy.deleteFail"));

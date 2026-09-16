@@ -1,6 +1,6 @@
 import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { authEnabled, signOut } from "@/lib/auth/client";
+import { authEnabled } from "@/lib/auth/enabled";
 import { hasGateSessionMarker } from "@/lib/auth/gate-session-marker";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { cn } from "@/lib/utils";
@@ -48,7 +48,9 @@ export function AuthBar({ extra, showTable = true }: { extra?: ReactNode; showTa
               disabled={signingOut}
               onClick={() => {
                 setSigningOut(true);
-                void signOut().catch(() => setSigningOut(false));
+                void import("@/lib/auth/client")
+                  .then((m) => m.signOut())
+                  .catch(() => setSigningOut(false));
               }}
               className={cn(
                 "text-xs text-muted underline-offset-4 hover:text-fg hover:underline",
