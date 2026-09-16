@@ -156,10 +156,10 @@ export function HelmCanvas({ helmKind, portId, ship, onWin, onCrash, onHire }) {
       ) : null}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-between gap-2 px-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
         <p className="rounded-md bg-bg/75 px-2 py-1 text-[10px] tracking-[0.18em] text-accent">{t("helm.kicker")}</p>
-        <p className="rounded-md bg-bg/75 px-2 py-1 font-mono text-[11px] tabular-nums text-muted">{Math.round(hud.dist)} m \u00b7 {hud.speed.toFixed(1)} kn</p>
+        <p className="rounded-md bg-bg/75 px-2 py-1 font-mono text-[11px] tabular-nums text-muted">{Math.round(hud.dist)} m · {hud.speed.toFixed(1)} kn</p>
       </div>
       <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-10 border-t border-border bg-bg-elevated/95 px-3 pt-2 pb-[max(0.4rem,env(safe-area-inset-bottom))]">
-        <p className="mb-1 truncate text-[11px] text-muted">{t("helm.layout." + hud.layout)} \u00b7 {t(helmKind === "depart" ? "helm.taskDepartHint" : "helm.taskArriveHint")}</p>
+        <p className="mb-1 truncate text-[11px] text-muted">{t("helm.layout." + hud.layout)} · {t(helmKind === "depart" ? "helm.taskDepartHint" : "helm.taskArriveHint")}</p>
         <div className="flex items-center gap-1">
           {gears.map((g) => (
             <button
@@ -263,29 +263,87 @@ function drawProp(ctx, p) {
 function drawShip(ctx, c, img, scale) {
   ctx.save(); ctx.translate(c.x, c.y); ctx.rotate(c.heading);
   const i = c.beam * scale, a = c.length * scale;
-  if (img && img.naturalWidth > 0) { ctx.scale(1, -1); ctx.drawImage(img, -i / 2, -a / 2, i, a); }
-  else {
+  if (Math.abs(c.speed) > 0.4) {
+    ctx.fillStyle = "rgba(237,230,217,0.16)";
+    for (let k = 1; k <= 4; k++) {
+      ctx.beginPath();
+      ctx.ellipse(0, -a / 2 - k * 1.15 * Math.sign(c.speed || 1), 0.35 + k * 0.22, 0.55 + k * 0.35, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.fillStyle = "rgba(0,0,0,0.28)";
+  ctx.beginPath();
+  ctx.ellipse(0.35, 0.4, i * 0.48, a * 0.42, 0, 0, Math.PI * 2);
+  ctx.fill();
+  if (img && img.naturalWidth > 0) {
+    ctx.save();
+    ctx.scale(1, -1);
+    ctx.drawImage(img, -i / 2, -a / 2, i, a);
+    ctx.restore();
+  } else {
     ctx.fillStyle = "#1a0c04"; ctx.fillRect(-i / 2, -a / 2, i, a);
     ctx.fillStyle = "#d8cbb6"; ctx.fillRect(-i * 0.3, -a * 0.12, i * 0.6, a * 0.32);
     ctx.fillStyle = "#e85d04"; ctx.beginPath(); ctx.moveTo(0, a / 2); ctx.lineTo(-i * 0.42, a / 2 - 1.5); ctx.lineTo(i * 0.42, a / 2 - 1.5); ctx.closePath(); ctx.fill();
   }
+  const glow = 0.55 + 0.45 * Math.max(0, Math.sin(c.x + c.y));
+  ctx.fillStyle = `rgba(196,60,60,${0.55 + glow * 0.35})`;
+  ctx.beginPath(); ctx.arc(-i * 0.42, a * 0.1, Math.max(0.16, i * 0.055), 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = `rgba(60,138,76,${0.55 + glow * 0.35})`;
+  ctx.beginPath(); ctx.arc(i * 0.42, a * 0.1, Math.max(0.16, i * 0.055), 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "rgba(243,236,226,0.9)";
+  ctx.beginPath(); ctx.arc(0, a * 0.42, Math.max(0.14, i * 0.045), 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 }
 
 function drawWorld(ctx, canvas, craft, harbor, kind, name, now, imgs) {
-  ctx.fillStyle = "#071820"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#06141c"; ctx.fillRect(0, 0, canvas.width, canvas.height);
   if (!harbor) return;
   ctx.save();
   applyCam(ctx, canvas, harbor, kind);
-  ctx.fillStyle = WATER[harbor.water] || WATER[0];
+  const water = WATER[harbor.water] || WATER[0];
+  const g = ctx.createLinearGradient(0, -50, 0, harbor.seaY + 90);
+  g.addColorStop(0, "#163a44");
+  g.addColorStop(0.45, water);
+  g.addColorStop(1, "#0e2a32");
+  ctx.fillStyle = g;
   ctx.fillRect(-140, -50, 280, harbor.seaY + 90);
-  ctx.fillStyle = "rgba(255,255,255,0.05)";
-  for (let i = 0; i < 10; i++) ctx.fillRect(-140, i * 14 + Math.sin(now * 0.4 + i) * 0.8, 280, 1.1);
-  for (const n of harbor.walls) inkRect(ctx, n.x, n.y, n.w, n.h, n.h < 5 || n.w < 8.5 ? QUAY : LAND[harbor.palette] || LAND[0]);
+  ctx.fillStyle = "rgba(255,255,255,0.07)";
+  for (let i = 0; i < 14; i++) ctx.fillRect(-140, i * 11 + Math.sin(now * 0.55 + i) * 1.1, 280, 0.9);
+  ctx.fillStyle = "rgba(255,255,255,0.04)";
+  for (let i = 0; i < 8; i++) {
+    const y = 6 + i * 16 + Math.sin(now * 0.7 + i * 0.6) * 1.4;
+    ctx.beginPath(); ctx.ellipse(Math.sin(now * 0.3 + i) * 18, y, 22 + i, 1.1, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.fillStyle = "rgba(210,235,240,0.18)";
+  for (let i = 0; i < 10; i++) {
+    const gx = Math.sin(now * 0.4 + i * 1.7) * 36 + (i % 5) * 9;
+    const gy = 8 + i * 9 + Math.sin(now * 1.1 + i) * 1.6;
+    ctx.beginPath(); ctx.ellipse(gx, gy, 3.2, 0.35, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  for (const n of harbor.walls) {
+    ctx.fillStyle = "rgba(0,0,0,0.22)";
+    ctx.fillRect(n.x + 0.45, n.y + 0.45, n.w, n.h);
+    inkRect(ctx, n.x, n.y, n.w, n.h, n.h < 5 || n.w < 8.5 ? QUAY : LAND[harbor.palette] || LAND[0]);
+  }
   const seg0 = harbor.segs[0];
   if (seg0) {
     inkRect(ctx, seg0.x - harbor.berth / 2 - 1.4, -10, harbor.berth + 2.8, 16, QUAY);
     ctx.fillStyle = "#c8c4b4"; ctx.fillRect(seg0.x - harbor.berth / 2, 4.6, harbor.berth, 0.5);
+    ctx.fillStyle = "#6a6a62";
+    for (let k = 0; k < 5; k++) {
+      const bx = seg0.x - harbor.berth / 2 + 0.8 + k * (harbor.berth / 4.2);
+      ctx.beginPath(); ctx.arc(bx, 5.2, 0.28, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#2a2a28";
+      ctx.fillRect(bx - 0.07, 1.1, 0.14, 3.4);
+      const lamp = ctx.createRadialGradient(bx, 1.15, 0.05, bx, 1.15, 2.6);
+      lamp.addColorStop(0, "rgba(240,210,120,0.7)");
+      lamp.addColorStop(1, "rgba(240,210,120,0)");
+      ctx.fillStyle = lamp;
+      ctx.beginPath(); ctx.arc(bx, 1.15, 2.6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#f0d48a";
+      ctx.beginPath(); ctx.arc(bx, 1.15, 0.2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#6a6a62";
+    }
   }
   for (const n of harbor.roads || []) {
     inkRect(ctx, n.x, n.y, n.w, n.h, ROAD);
@@ -302,19 +360,26 @@ function drawWorld(ctx, canvas, craft, harbor, kind, name, now, imgs) {
     ctx.restore();
   }
   for (const n of harbor.cranes || []) {
+    ctx.fillStyle = "#2a2a28"; ctx.fillRect(n.x - 0.55, n.y, 1.1, 7.2);
+    ctx.fillStyle = "#c45c4a"; ctx.fillRect(n.x - 0.7, n.y, 1.4, 1.4);
     ctx.strokeStyle = "#c45c4a"; ctx.lineWidth = 0.32; ctx.beginPath();
     ctx.moveTo(n.x, n.y); ctx.lineTo(n.x, n.y + 7); ctx.moveTo(n.x - 2.6, n.y + 1.3); ctx.lineTo(n.x + 4.2, n.y + 1.3); ctx.stroke();
+    ctx.strokeStyle = "#8a8a82"; ctx.lineWidth = 0.1;
+    ctx.beginPath(); ctx.moveTo(n.x + 4.2, n.y + 1.3); ctx.lineTo(n.x + 4.2, n.y + 4.4); ctx.stroke();
+    ctx.fillStyle = "#c45c4a"; ctx.fillRect(n.x + 3.95, n.y + 4.35, 0.5, 0.45);
   }
   for (const b of harbor.buoys) {
-    ctx.beginPath(); ctx.arc(b.x, b.y, 0.62, 0, Math.PI * 2);
+    const bob = Math.sin(now * 2.1 + b.y * 0.08) * 0.35;
+    ctx.beginPath(); ctx.arc(b.x, b.y + bob, 0.62, 0, Math.PI * 2);
     ctx.fillStyle = b.port ? "#c43c3c" : "#3c8a4c"; ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 0.1; ctx.stroke();
+    ctx.fillStyle = "rgba(237,230,217,0.55)"; ctx.fillRect(b.x - 0.08, b.y + bob - 1.15, 0.16, 0.7);
   }
-  const g = goalOf(kind, harbor);
+  const goal = goalOf(kind, harbor);
   const last = harbor.segs[harbor.segs.length - 1];
   const gw = kind === "depart" ? last.w * 0.48 : harbor.berth * 0.48;
   const pulse = 0.55 + 0.45 * Math.sin(now * 3.2);
-  ctx.fillStyle = "rgba(232,93,4," + (0.16 + pulse * 0.16) + ")"; ctx.fillRect(g.x - gw, g.y - 5, gw * 2, 12);
-  ctx.strokeStyle = "rgba(232,93,4," + (0.7 + pulse * 0.3) + ")"; ctx.lineWidth = 0.45; ctx.strokeRect(g.x - gw, g.y - 5, gw * 2, 12);
+  ctx.fillStyle = "rgba(232,93,4," + (0.16 + pulse * 0.16) + ")"; ctx.fillRect(goal.x - gw, goal.y - 5, gw * 2, 12);
+  ctx.strokeStyle = "rgba(232,93,4," + (0.7 + pulse * 0.3) + ")"; ctx.lineWidth = 0.45; ctx.strokeRect(goal.x - gw, goal.y - 5, gw * 2, 12);
   for (const n of harbor.traffic || []) drawShip(ctx, n, imgs.boat, 1);
   if (craft) drawShip(ctx, craft, imgs.ship, 0.92);
   ctx.restore();

@@ -9,7 +9,7 @@ export const en = {
   "brand.hq": "FANTASY HQ",
 
   "title.blurb":
-    "Buy RoRo, load cars and High & Heavy, keep OEM deadlines — or take grey cargo and hope customs looks away. Take the helm in and out of port, or hire a pilot. Cheap feeders cannot lift the big lots. ETS quotas land every month.",
+    "Buy RoRo, keep OEM deadlines — or stuff undeclared cars and hope customs is counting seagulls. Take the helm like a harbour game from 1997. Grey cargo pays. Geometry comes later.",
   "title.captain": "Display name",
   "title.placeholder": "Your name",
   "title.company": "Shipping line",
@@ -685,7 +685,7 @@ export const en = {
 
   "event.customs.title": "Customs. Smile.",
   "event.customs.body": "A spot check on the quay. Clipboards, peaked caps, and the eternal hope that deck 4 matches the paper.",
-  "event.customs.bodyGrey": "A patrol with clipboards and no sense of humour. Undeclared metal is sitting on deck 4, pretending to be a forklift. Open the books, or try a thick envelope and a thicker smile.",
+  "event.customs.bodyGrey": "A patrol with clipboards and no sense of humour. Undeclared metal is sitting on deck 4, pretending to be a forklift named Steve. Open the books, or try a thick envelope and a thicker smile.",
   "event.customs.open": "Open the manifests",
   "event.customs.openGrey": "seizure + fine",
   "event.customs.openClean": "probably clean",

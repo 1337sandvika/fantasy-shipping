@@ -257,6 +257,15 @@ export function MapCanvas() {
       sea.addColorStop(1, "#143044");
       ctx.fillStyle = sea;
       ctx.fillRect(0, 0, w, h);
+      const tNow = performance.now();
+      for (let i = 0; i < 42; i++) {
+        const x = ((i * 97 + 13) % Math.max(1, w));
+        const y = ((i * 53 + 29) % Math.max(1, h));
+        ctx.fillStyle = `rgba(180,214,226,${0.04 + 0.07 * (0.5 + 0.5 * Math.sin(tNow / 680 + i))})`;
+        ctx.beginPath();
+        ctx.arc(x, y, 1.15, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
       const world = ship ? shipWorldPos(ship, shipLeg(st, ship.id)) : null;
       const activeLeg = ship ? shipLeg(st, ship.id) : null;
@@ -365,12 +374,23 @@ export function MapCanvas() {
       ctx.setLineDash([]);
 
       const land = getLandPath(w, h);
-      ctx.fillStyle = "#3a4942";
+      ctx.fillStyle = "#2f4038";
       ctx.fill(land);
+      ctx.fillStyle = "#3d4f46";
+      ctx.save();
+      ctx.clip(land);
+      ctx.globalAlpha = 0.35;
+      for (let gy = 0; gy < h; gy += 7) {
+        ctx.fillRect(0, gy, w, 2);
+      }
+      ctx.restore();
+      ctx.strokeStyle = "rgba(90,160,150,0.35)";
+      ctx.lineWidth = 5.5 * lw;
+      ctx.stroke(land);
       ctx.strokeStyle = "#1c2824";
       ctx.lineWidth = 2.2 * lw;
       ctx.stroke(land);
-      ctx.strokeStyle = "rgba(196,181,160,0.35)";
+      ctx.strokeStyle = "rgba(196,181,160,0.4)";
       ctx.lineWidth = 0.8 * lw;
       ctx.stroke(land);
 
@@ -449,6 +469,13 @@ export function MapCanvas() {
         const on = p.id === selected;
         const cargo = destIds.has(p.id);
         const lngMark = Boolean(ship?.fuel === "lng" && p.lng);
+        if (p.hub || on) {
+          const pulse = 0.72 + 0.28 * Math.sin(tNow / 420 + p.lon);
+          ctx.beginPath();
+          ctx.fillStyle = on ? `rgba(232,93,4,${0.16 + pulse * 0.12})` : `rgba(237,230,217,${0.08 + pulse * 0.06})`;
+          ctx.arc(pt.x, pt.y, (on ? 16 : 12) * lw * pulse, 0, Math.PI * 2);
+          ctx.fill();
+        }
         ctx.beginPath();
         ctx.fillStyle = on ? "#e85d04" : cargo ? "#c4a574" : lngMark ? "#7d9b76" : "#ede6d9";
         ctx.arc(pt.x, pt.y, (on ? 5.5 : cargo ? 5.2 : lngMark ? 4.8 : p.hub ? 4.2 : 3.4) * lw, 0, Math.PI * 2);

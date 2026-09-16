@@ -1,14 +1,18 @@
-import type { GameState } from "./types";
+import type { EventPick, GameState, TrialJob } from "./types";
 import { activeShip } from "./fleet";
 
 export type HeatBand = "quiet" | "rumor" | "watch" | "probe" | "trial";
 export type Verdict = "acquit" | "slap" | "guilty" | "miss";
 export type LawyerTier = 0 | 1 | 2;
 
+export const HEAT_RUMOR = 18;
+export const HEAT_WATCH = 28;
+export const HEAT_PROBE = 42;
+
 export function lawyerRadius(tier: LawyerTier): number {
-  if (tier === 2) return 0.31;
-  if (tier === 1) return 0.2;
-  return 0.12;
+  if (tier === 2) return 0.215;
+  if (tier === 1) return 0.14;
+  return 0.082;
 }
 
 export function lawyerCost(tier: LawyerTier, stake: number): number {
@@ -29,17 +33,43 @@ export function scoreThrow(x: number, y: number, lawyer: LawyerTier): { dist: nu
   const dist = Math.hypot(x, y);
   const r = lawyerRadius(lawyer);
   if (dist <= r) return { dist, verdict: "acquit", cut: 0 };
-  if (dist <= r * 2.15) return { dist, verdict: "slap", cut: 0.38 };
-  if (dist <= 1) return { dist, verdict: "guilty", cut: 0.82 };
-  return { dist, verdict: "miss", cut: 0.95 };
+  if (dist <= r * 2.0) return { dist, verdict: "slap", cut: 0.44 };
+  if (dist <= 1) return { dist, verdict: "guilty", cut: 0.86 };
+  return { dist, verdict: "miss", cut: 0.96 };
 }
 
 export function heatBand(heat: number, probe = false, trial = false): HeatBand {
   if (trial) return "trial";
-  if (probe || heat >= 48) return "probe";
-  if (heat >= 32) return "watch";
-  if (heat >= 16) return "rumor";
+  if (probe || heat >= HEAT_PROBE) return "probe";
+  if (heat >= HEAT_WATCH) return "watch";
+  if (heat >= HEAT_RUMOR) return "rumor";
   return "quiet";
+}
+
+export type VerdictEffects = {
+  verdict: Verdict;
+  days: number;
+  heatAfter: number;
+  repHit: number;
+  seize: boolean;
+  fine: number;
+};
+
+export function verdictEffects(trial: Pick<TrialJob, "verdict" | "fine">): VerdictEffects {
+  const verdict = trial.verdict ?? "guilty";
+  const fine = trial.fine ?? 0;
+  const days = verdict === "miss" ? 14 : verdict === "guilty" ? 8 : verdict === "slap" ? 2 : 0;
+  const heatAfter = verdict === "acquit" ? 8 : verdict === "slap" ? 14 : 5;
+  const repHit = verdict === "acquit" ? 2 : verdict === "slap" ? -4 : verdict === "guilty" ? -10 : -16;
+  const seize = verdict === "guilty" || verdict === "miss";
+  return { verdict, days, heatAfter, repHit, seize, fine };
+}
+
+export function greyOnBoardCeu(s: GameState): number {
+  return s.fleet.reduce(
+    (a, sh) => a + sh.hold.filter((l) => l.grey).reduce((b, l) => b + l.ceu, 0),
+    0,
+  );
 }
 
 export function rumorEvent(s: GameState): GameState {
@@ -67,6 +97,17 @@ export function probeEvent(s: GameState): GameState {
       a: { id: "stall", label: "event.probe.stall", hint: "event.probe.stallHint" },
       b: { id: "court", label: "event.probe.court", hint: "event.probe.courtHint" },
     },
+  };
+}
+
+export function verdictEvent(vars: Record<string, string | number>, verdict: Verdict): EventPick {
+  return {
+    id: "verdict",
+    title: `event.verdict.title.${verdict}`,
+    body: `event.verdict.body.${verdict}`,
+    a: { id: "work", label: "event.verdict.work", hint: "event.verdict.workHint" },
+    b: { id: "low", label: "event.verdict.low", hint: "event.verdict.lowHint" },
+    vars,
   };
 }
 

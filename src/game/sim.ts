@@ -2,7 +2,7 @@
 import { BRANDS, ODD, LOT_FLAVOUR, GREY_NOTES, SHIP_NAMES, TC_DESKS } from "./data/cargo";
 import { CUSTOMS_HUBS, PORTS, etsShare, getPort, portName } from "./data/ports";
 import { HULLS, UPGRADES, hullById } from "./data/ships";
-import { isWinter, monthKey, money } from "./format";
+import { isWinter, monthKey, money, qty } from "./format";
 import { inEurope } from "./geo";
 import {
   activeLeg,
@@ -26,7 +26,20 @@ import {
 import { seaRoute } from "./route";
 import { t, type MsgKey } from "@/i18n";
 import { pilotFee } from "./helm";
-import { beginTrial, lawyerCost, probeEvent, rumorEvent, scoreThrow, trialStake, type LawyerTier } from "./court";
+import {
+  beginTrial,
+  greyOnBoardCeu,
+  HEAT_PROBE,
+  HEAT_RUMOR,
+  lawyerCost,
+  probeEvent,
+  rumorEvent,
+  scoreThrow,
+  trialStake,
+  verdictEffects,
+  verdictEvent,
+  type LawyerTier,
+} from "./court";
 
 let seq = 1;
 const uid = (p: string) => `${p}-${seq++}-${Math.random().toString(36).slice(2, 6)}`;
@@ -901,7 +914,7 @@ export function loadLot(s, lotId) {
   if (!canLoadLot(ship, lot)) return s;
   const next = {
     ...s,
-    heat: Math.min(100, s.heat + (lot.grey ? 14 + Math.round(lot.ceu / 90) : 0)),
+    heat: Math.min(100, s.heat + (lot.grey ? 20 + Math.round(lot.ceu / 55) : 0)),
     lots: {
       ...s.lots,
       [s.selectedPort]: quay.filter((l) => l.id !== lotId),
@@ -1277,7 +1290,7 @@ export function waitDay(s) {
   return next;
 }
 function tickOpex(s, days) {
-  const opex = s.fleet.filter((sh) => sh.charter !== "in").reduce((a, sh) => a + sh.opex, 0) * days;
+  const opex = s.fleet.filter((sh) => sh.charter !== "in").reduce((a, sh) => a + sh.opex, 0) * days * 1.18;
   return applyDebt(
     {
       ...s,
@@ -1604,11 +1617,11 @@ function arriveShip(s, shipId) {
   next = maybeHeatBeat(next);
   if (next.phase === "event" || next.trial) return next;
   const grey = docked.hold.some((l) => l.grey);
-  if (next.probe && (CUSTOMS_HUBS.has(v.to) || next.heat >= 40) && Math.random() < 0.7) {
+  if (next.probe && (CUSTOMS_HUBS.has(v.to) || next.heat >= 36) && Math.random() < 0.8) {
     log(next, "log.court.summons", { port: portName(v.to) });
     return beginTrial(next);
   }
-  if (CUSTOMS_HUBS.has(v.to) && (grey || next.heat >= 22) && Math.random() < (grey ? 0.55 : 0.32))
+  if (CUSTOMS_HUBS.has(v.to) && (grey || next.heat >= 20) && Math.random() < (grey ? 0.66 : 0.4))
     return customsEvent(next);
   if (
     docked.fuel === "lng" &&
@@ -1653,7 +1666,7 @@ function takeGreyDeal(s, ship, hot) {
   if (remainingCeu(ship) >= extra.ceu && remainingHh(ship) >= extra.hh) {
     const next = {
       ...s,
-      heat: Math.min(100, s.heat + (hot ? 28 : 20)),
+      heat: Math.min(100, s.heat + (hot ? 32 : 24)),
       greyEarned: (s.greyEarned ?? 0) + Math.round(extra.ceu * extra.rate * 0.35),
       fleet: s.fleet.map((sh) => (sh.id === ship.id ? { ...sh, hold: [...sh.hold, extra] } : sh)),
     };
@@ -1661,7 +1674,7 @@ function takeGreyDeal(s, ship, hot) {
     return next;
   }
   const cash = 90e3 + Math.floor(Math.random() * 70e3);
-  const next = { ...s, cash: s.cash + cash, heat: Math.min(100, s.heat + 9), greyEarned: (s.greyEarned ?? 0) + cash };
+  const next = { ...s, cash: s.cash + cash, heat: Math.min(100, s.heat + 12), greyEarned: (s.greyEarned ?? 0) + cash };
   log(next, "log.ev.greyCash");
   return next;
 }
@@ -1688,10 +1701,10 @@ export function customsEvent(s) {
   };
 }
 function pickQuayEvent(s) {
-  if ((s.heat ?? 0) >= 22 && (s.heatBeat ?? 0) < 22) {
-    return rumorEvent({ ...s, heatBeat: 22, heatNoteDay: s.day });
+  if ((s.heat ?? 0) >= HEAT_RUMOR && (s.heatBeat ?? 0) < HEAT_RUMOR) {
+    return rumorEvent({ ...s, heatBeat: HEAT_RUMOR, heatNoteDay: s.day });
   }
-  if (s.probe && Math.random() < 0.32) {
+  if (s.probe && Math.random() < 0.42) {
     const next = { ...s };
     log(next, "log.court.summons", { port: portName(activeShip(s)?.port ?? s.selectedPort) });
     return beginTrial(next);
@@ -1887,7 +1900,7 @@ export function resolveEvent(s, choice) {
   if (ev.id === "rumor") {
     let next = { ...s, phase: "port", event: null };
     if (choice === "lay") {
-      next = { ...next, heat: Math.max(0, next.heat - 12), day: next.day + 2 };
+      next = { ...next, heat: Math.max(0, next.heat - 9), day: next.day + 2 };
       log(next, "log.rumor.lay");
       next = tickOpex(next, 2);
       next = tickCharters(next, 2);
@@ -1900,12 +1913,24 @@ export function resolveEvent(s, choice) {
   if (ev.id === "probe") {
     let next = { ...s, phase: "port", event: null, probe: true };
     if (choice === "stall") {
-      next = { ...next, heat: Math.max(0, next.heat - 6) };
+      next = { ...next, heat: Math.max(0, next.heat - 4) };
       log(next, "log.probe.stall");
       return maybeEnd(popPendingEvent(next));
     }
     log(next, "log.probe.court", { n: trialStake(next) });
     return beginTrial(next);
+  }
+  if (ev.id === "verdict") {
+    let next = { ...s, phase: "port", event: null };
+    if (choice === "low") {
+      next = { ...next, heat: Math.max(0, next.heat - 8), day: next.day + 2 };
+      log(next, "log.verdict.low");
+      next = tickOpex(next, 2);
+      next = tickCharters(next, 2);
+    } else {
+      log(next, "log.verdict.work");
+    }
+    return maybeEnd(popPendingEvent(next));
   }
   const ship = activeShip(s);
   const v = activeLeg(s);
@@ -2251,11 +2276,11 @@ export function maybeHeatBeat(s) {
   }
   const beat = s.heatBeat ?? 0;
   const since = s.day - (s.heatNoteDay ?? -99);
-  if (heat >= 22 && beat < 22 && since >= 4) {
-    return rumorEvent({ ...s, heatBeat: 22, heatNoteDay: s.day });
+  if (heat >= HEAT_RUMOR && beat < HEAT_RUMOR && since >= 2) {
+    return rumorEvent({ ...s, heatBeat: HEAT_RUMOR, heatNoteDay: s.day });
   }
-  if (heat >= 48 && beat >= 22 && beat < 48 && !s.probe && since >= 8) {
-    return probeEvent({ ...s, heatBeat: 48, heatNoteDay: s.day, probe: true });
+  if (heat >= HEAT_PROBE && beat >= HEAT_RUMOR && beat < HEAT_PROBE && !s.probe && since >= 5) {
+    return probeEvent({ ...s, heatBeat: HEAT_PROBE, heatNoteDay: s.day, probe: true });
   }
   if (heat < 10 && beat) return { ...s, heatBeat: 0 };
   return s;
@@ -2298,37 +2323,55 @@ export function lockThrow(s, x, y) {
 export function settleCourt(s) {
   const trial = s.trial;
   if (!trial || trial.phase !== "verdict") return s;
-  const verdict = trial.verdict ?? "guilty";
-  const fine = trial.fine ?? 0;
-  const bill = payOrCredit(s, fine);
-  const days = verdict === "miss" ? 14 : verdict === "guilty" ? 8 : verdict === "slap" ? 2 : 0;
-  const heatAfter = verdict === "acquit" ? 6 : verdict === "slap" ? 10 : 4;
-  const repHit = verdict === "acquit" ? 2 : verdict === "slap" ? -4 : verdict === "guilty" ? -10 : -16;
-  const seize = verdict === "guilty" || verdict === "miss";
+  const fx = verdictEffects(trial);
+  const seizedCeu = fx.seize ? greyOnBoardCeu(s) : 0;
+  const bill = payOrCredit(s, fx.fine);
   let next = {
     ...s,
     cash: bill.cash,
     debt: bill.debt,
-    fines: s.fines + (fine > 0 ? fine : 0),
-    heat: heatAfter,
+    fines: s.fines + (fx.fine > 0 ? fx.fine : 0),
+    heat: fx.heatAfter,
     heatBeat: 0,
     heatNoteDay: s.day,
     probe: false,
     greyEarned: 0,
-    reputation: Math.max(5, Math.min(100, s.reputation + repHit)),
-    day: s.day + days,
+    reputation: Math.max(5, Math.min(100, s.reputation + fx.repHit)),
+    day: s.day + fx.days,
     trial: null,
-    fleet: seize
+    fleet: fx.seize
       ? s.fleet.map((sh) => ({ ...sh, hold: sh.hold.filter((l) => !l.grey) }))
       : s.fleet,
   };
-  log(next, `log.court.${verdict}`, { n: fine });
+  log(next, `log.court.${fx.verdict}`, { n: fx.fine, days: fx.days, ceu: seizedCeu });
   if (bill.credited) log(next, "log.court.credit", { n: bill.credited });
-  if (days) {
-    next = tickOpex(next, days);
-    next = tickCharters(next, days);
-    next = advanceLegs(next, days, false);
+  if (fx.seize && seizedCeu) log(next, "log.court.seize", { ceu: seizedCeu });
+  if (fx.days) {
+    next = tickOpex(next, fx.days);
+    next = tickCharters(next, fx.days);
+    next = advanceLegs(next, fx.days, false);
     next = tickBarges(next);
   }
-  return maybeEnd(maybeEts(next));
+  next = maybeEnd(maybeEts(next));
+  if (next.phase === "end") return next;
+  next = {
+    ...next,
+    phase: "event",
+    event: verdictEvent(
+      {
+        n: money(fx.fine),
+        days: fx.days,
+        ceu: qty(seizedCeu),
+        heat: fx.heatAfter,
+        cash: money(next.cash),
+        stake: money(trial.stake),
+        rep: fx.repHit > 0 ? `+${fx.repHit}` : String(fx.repHit),
+        verdict: fx.verdict,
+        credit: bill.credited ? money(bill.credited) : "",
+        debt: bill.credited ? money(next.debt) : "",
+      },
+      fx.verdict,
+    ),
+  };
+  return next;
 }

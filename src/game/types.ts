@@ -87,6 +87,7 @@ export type EventPick = {
   a: { id: string; label: string; hint: string };
   b: { id: string; label: string; hint: string };
   payload?: { cash?: number; brand?: string; n?: number; kind?: HonourKind };
+  vars?: Record<string, string | number>;
 };
 
 export type EtsShipLine = { name: string; t: number };

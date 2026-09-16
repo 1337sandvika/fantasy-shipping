@@ -19,6 +19,7 @@ import { hydrateIap, iapCanPlay, refreshTrialClock, useIap } from "@/lib/iap";
 import { hydrateSaveFlag, useGame } from "./store";
 import { setMuted } from "./audio";
 import { activeShip, bargeLeft, drydockLeft, fleetHasBarge } from "./fleet";
+import { heatBand } from "./court";
 
 const DAYS_PER_MIN = 12;
 
@@ -275,7 +276,7 @@ function StatusBanners() {
   const bargeDays = ship ? bargeLeft(ship, s.day) : 0;
   const heat = s.heat ?? 0;
   const ddWarn = Boolean(ship) && left <= 40;
-  const heatWarn = heat >= 16 || Boolean(s.probe);
+  const heatWarn = heat >= 14 || Boolean(s.probe);
   const etsWarn = Boolean(s.ets) || (s.etsAcc ?? 0) > 80;
   const bargeWarn = bargeDays > 0;
   const tcOverdue = (s.charters ?? []).some((c) => c.kind === "in" && s.day + 1e-6 >= c.untilDay);
@@ -296,8 +297,8 @@ function StatusBanners() {
         </button>
       ) : null}
       {heatWarn ? (
-        <span className={heat >= 48 || s.probe ? "text-danger" : "text-warn"}>
-          {maybeT(`heat.band.${heat >= 48 || s.probe ? "probe" : heat >= 32 ? "watch" : "rumor"}`)}
+        <span className={heatBand(heat, s.probe) === "probe" ? "text-danger" : "text-warn"}>
+          {maybeT(`heat.band.${heatBand(heat, s.probe)}`)}
         </span>
       ) : null}
       {etsWarn ? <span className="text-warn">{t("ets.title")}</span> : null}

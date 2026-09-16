@@ -101,10 +101,10 @@ export function makeHarbor(portId: string, ship: Pick<Ship, "ceu">): Harbor {
   const i = hash(portId);
   const kind = KINDS[i % KINDS.length]!;
   const seaY = 92, span = 88;
-  const chan0 = (port.hub ? 13.4 : 16.6) - Math.min(3.2, ship.ceu / 4200);
+  const chan0 = (port.hub ? 12.6 : 15.6) - Math.min(3.6, ship.ceu / 3800);
   const berth = 9 + r() * 2.4;
-  const current = (r() - 0.48) * (kind === "dogleg" || kind === "offset" ? 1.8 : 1.2);
-  const wind = (r() - 0.5) * (kind === "narrow" ? 2.1 : 1.4);
+  const current = (r() - 0.48) * (kind === "dogleg" || kind === "offset" ? 2.55 : 1.9);
+  const wind = (r() - 0.5) * (kind === "narrow" ? 2.95 : 2.05);
   const segs = segsFor(kind, chan0, seaY, r);
   const walls = wallsFrom(segs, span);
   if (kind === "piers") {
@@ -136,7 +136,7 @@ export function makeHarbor(portId: string, ship: Pick<Ship, "ceu">): Harbor {
   }
   const cranes = [{ x: berthX - berth * 0.35, y: 2.4 }, { x: berthX + berth * 0.3, y: 3.1 }];
   if (port.hub) cranes.push({ x: berthX - 1.4, y: 11 });
-  const extra = (port.hub ? 1 + +(i % 3 === 0) : +(r() > 0.4)) + +(kind === "basin" || kind === "piers");
+  const extra = (port.hub ? 2 + +(i % 3 === 0) : 1 + +(r() > 0.35)) + +(kind === "basin" || kind === "piers");
   const traffic: Traffic[] = [];
   for (let e = 0; e < extra; e++) {
     const t = segs[Math.min(segs.length - 1, 1 + (e % segs.length))]!;
@@ -153,7 +153,7 @@ export function spawnCraft(kind: HelmJob["kind"], ship: Pick<Ship, "ceu" | "cond
   const turnRate = (1.55 - length * 0.048) * cond;
   if (kind === "depart") return { x: harbor.spawnX, y: 12, heading: 0, speed: 0, length, beam, maxSpeed, turnRate };
   const last = harbor.segs[harbor.segs.length - 1]!;
-  return { x: last.x + ((hash(String(ship.ceu)) % 7) - 3) * 0.4, y: harbor.seaY + 6, heading: Math.PI + 0.06, speed: 2.6, length, beam, maxSpeed, turnRate };
+  return { x: last.x + ((hash(String(ship.ceu)) % 7) - 3) * 0.4, y: harbor.seaY + 6, heading: Math.PI + 0.06, speed: 3.35, length, beam, maxSpeed, turnRate };
 }
 function wrapPi(a: number) { let x = a; while (x > Math.PI) x -= Math.PI * 2; while (x < -Math.PI) x += Math.PI * 2; return x; }
 export function forward(heading: number) { return { x: -Math.sin(heading), y: Math.cos(heading) }; }
@@ -199,7 +199,7 @@ export function helmWon(c: HelmCraft, kind: HelmJob["kind"], harbor: Harbor): bo
   const last = harbor.segs[harbor.segs.length - 1]!;
   if (kind === "depart") return c.y > harbor.seaY + 2 && Math.abs(c.x - last.x) < last.w * 0.7 && c.speed > 1.1;
   const i = Math.abs(wrapPi(c.heading));
-  return c.y < 7.4 && Math.abs(c.x - harbor.berthX) < harbor.berth * 0.5 && (i < 0.55 || Math.abs(i - Math.PI) < 0.55) && Math.abs(c.speed) < 2.2;
+  return c.y < 7.4 && Math.abs(c.x - harbor.berthX) < harbor.berth * 0.44 && (i < 0.4 || Math.abs(i - Math.PI) < 0.4) && Math.abs(c.speed) < 1.62;
 }
 export function stepTraffic(h: Harbor, dt: number): Harbor {
   if (!h.traffic.length) return h;

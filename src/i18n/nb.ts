@@ -7,7 +7,7 @@ export const nb: Record<MsgKey, string> = {
   "brand.results": "FANTASY SHIPPING · RESULTATER",
   "brand.end": "FANTASY SHIPPING · KARRIERE SLUTT",
   "title.blurb":
-    "Kjøp RoRo, last biler og High & Heavy, hold OEM-frister — eller ta grå last og håpe tollen ser en annen vei. Ta roret inn og ut av havn, eller lei en los. Billige feedere løfter ikke de store lottene. ETS-kvotene kommer hver måned.",
+    "Kjøp RoRo, hold OEM-frister — eller last ufortollede biler og håpe tollen teller måker. Ta roret som et havnespill fra 1997. Grå last betaler. Geometri kommer senere.",
   "title.captain": "Visningsnavn",
   "title.placeholder": "Ditt navn",
   "title.company": "Rederi",
@@ -660,7 +660,7 @@ export const nb: Record<MsgKey, string> = {
   "event.customs.title": "Tollen. Smil.",
   "event.customs.body": "Stikkprøve på kaien. Skrivebrett, skyggeluer, og det evige håpet om at dekk 4 matcher papiret.",
   "event.customs.bodyGrey":
-    "En patrulje med skrivebrett og null humor. Udeklarert metall sitter på dekk 4 og later som det er en truck. Åpne bøkene, eller prøv en tykk konvolutt og et tykkere smil.",
+    "En patrulje med skrivebrett og null humor. Udeklarert metall sitter på dekk 4 og later som det er en truck som heter Steve. Åpne bøkene, eller prøv en tykk konvolutt og et tykkere smil.",
   "event.customs.open": "Åpne manifestene",
   "event.customs.openGrey": "beslag + bot",
   "event.customs.openClean": "sannsynligvis rent",

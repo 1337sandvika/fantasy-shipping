@@ -44,6 +44,7 @@ import { inEurope } from "../geo";
 import { seaRoute } from "../route";
 import { useGame } from "../store";
 import { HeatMeter } from "./HeatMeter";
+import { heatBand } from "../court";
 import type { Lot, Ship, Tab } from "../types";
 
 function lotKind(l: Lot, t: (k: MsgKey) => string) {
@@ -1110,15 +1111,11 @@ function LogTab() {
         <div className="mt-2">
           <HeatMeter heat={heat} probe={probe} />
         </div>
-        <p className="mt-2 text-sm">{maybeT("heat.body2", { n: heat, take: money(greyEarned), band: maybeT(`heat.band.${probe || heat >= 48 ? "probe" : heat >= 32 ? "watch" : heat >= 16 ? "rumor" : "quiet"}`) })}</p>
+        <p className="mt-2 text-sm">{maybeT("heat.body2", { n: heat, take: money(greyEarned), band: maybeT(`heat.band.${heatBand(heat, probe)}`) })}</p>
         <p className="mt-1 text-xs text-muted">{t("heat.body", { n: heat, ceu: greyCeu, fines: money(fines) })}</p>
-        {heat >= 16 ? (
+        {heat >= 14 ? (
           <p className="mt-1 text-xs text-warn">
-            {probe
-              ? maybeT("heat.hint.probe")
-              : heat >= 32
-                ? maybeT("heat.hint.watch")
-                : maybeT("heat.hint.rumor")}
+            {maybeT(`heat.hint.${heatBand(heat, probe)}`)}
           </p>
         ) : null}
       </div>

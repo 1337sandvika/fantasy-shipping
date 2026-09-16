@@ -15,6 +15,7 @@ export function eventArt(id: string): string | null {
     snitch: "/game/events/customs.jpg",
     rumor: "/game/events/customs.jpg",
     probe: "/game/events/arrest.jpg",
+    verdict: "/game/events/arrest.jpg",
     stash: "/game/events/lash.jpg",
     ribdrop: "/game/events/cutter.jpg",
     hhdeal: "/game/events/hh.jpg",

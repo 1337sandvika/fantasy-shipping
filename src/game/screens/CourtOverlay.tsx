@@ -2,13 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { maybeT } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { money } from "../format";
-import { lawyerCost, lawyerRadius, type LawyerTier } from "../court";
+import { money, qty } from "../format";
+import { greyOnBoardCeu, lawyerCost, lawyerRadius, verdictEffects, type LawyerTier } from "../court";
 import { blip, chime, foghorn } from "../audio";
 import { useGame } from "../store";
 
 const BG = "#071018";
-const RING = "#1a3344";
 const WIRE = "#c9c0ae";
 const ACCENT = "#e85d04";
 const FG = "#ede6d9";
@@ -52,35 +51,34 @@ export function CourtOverlay() {
       ctx.fillRect(0, 0, w, h);
       const cx = w / 2;
       const cy = h / 2;
-      const R = Math.min(w, h) * 0.42;
+      const R = Math.min(w, h) * 0.38;
       const tier = (trial?.lawyer ?? 0) as LawyerTier;
       const bull = lawyerRadius(tier);
       ctx.save();
       ctx.translate(cx, cy);
-      const rings = [1, 0.78, 0.58, 0.36, bull * 2.15, bull];
-      rings.forEach((r, i) => {
-        ctx.beginPath();
-        ctx.arc(0, 0, r * R, 0, Math.PI * 2);
-        ctx.fillStyle = i % 2 === 0 ? RING : "#122232";
-        ctx.fill();
-        ctx.strokeStyle = WIRE;
-        ctx.globalAlpha = 0.35;
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-      });
+      drawCabinet(ctx, R);
+      drawSisal(ctx, R);
+      ctx.beginPath();
+      ctx.arc(0, 0, bull * R * 2.0, 0, Math.PI * 2);
+      ctx.strokeStyle = WARN;
+      ctx.globalAlpha = 0.55;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
       ctx.beginPath();
       ctx.arc(0, 0, bull * R, 0, Math.PI * 2);
       ctx.strokeStyle = ACCENT;
+      ctx.globalAlpha = 1;
       ctx.lineWidth = 3;
       ctx.setLineDash([5, 4]);
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.beginPath();
-      ctx.arc(0, 0, 3, 0, Math.PI * 2);
+      ctx.arc(0, 0, Math.max(4, bull * R * 0.28), 0, Math.PI * 2);
       ctx.fillStyle = ACCENT;
       ctx.fill();
-      const speed = reduced.current ? 1.05 : 1.85;
+      const speed = reduced.current ? 1.2 : 2.55;
       const st = live.current;
       const aiming = trial?.phase === "throw" && (st.axis === "x" || st.axis === "y");
       if (aiming) {
@@ -207,7 +205,6 @@ export function CourtOverlay() {
   const desk = lawyerCost(1, stake);
   const phase = trial.phase;
   const verdict = trial.verdict;
-  const fine = trial.fine ?? 0;
 
   return (
     <div
@@ -226,7 +223,7 @@ export function CourtOverlay() {
             }}
           />
         </div>
-        <div className="flex w-full shrink-0 flex-col justify-center gap-3 overflow-y-auto border-t border-border bg-bg-elevated p-4 sm:w-80 sm:border-l sm:border-t-0 sm:p-5">
+        <div className="flex w-full shrink-0 flex-col justify-center gap-3 overflow-y-auto border-t border-border bg-bg-elevated p-4 sm:w-96 sm:border-l sm:border-t-0 sm:p-5">
           <p className="text-xs tracking-[0.2em] text-accent">{maybeT("court.kicker")}</p>
           <h2 className="font-display text-2xl">{maybeT("court.title", { line: s.company || s.captain })}</h2>
           <p className="text-xs tabular-nums text-muted">{maybeT("court.stake", { n: money(stake) })}</p>
@@ -261,13 +258,7 @@ export function CourtOverlay() {
             </>
           ) : null}
           {axis === "done" && verdict ? (
-            <>
-              <h3 className="font-display text-xl">{maybeT(`court.${verdict}`)}</h3>
-              <p className="text-sm text-muted">{maybeT(`court.${verdict}Body`, { n: money(fine) })}</p>
-              <Button className="w-full" onClick={settle}>
-                {maybeT("court.continue")}
-              </Button>
-            </>
+            <VerdictSheet trial={trial} cash={s.cash} seized={greyOnBoardCeu(s)} onContinue={settle} />
           ) : null}
         </div>
       </div>
@@ -294,24 +285,183 @@ function CounselBtn({
   );
 }
 
+function VerdictSheet({
+  trial,
+  cash,
+  seized,
+  onContinue,
+}: {
+  trial: NonNullable<ReturnType<typeof useGame.getState>["state"]["trial"]>;
+  cash: number;
+  seized: number;
+  onContinue: () => void;
+}) {
+  const fx = verdictEffects(trial);
+  const take = fx.seize ? seized : 0;
+  const after = cash - fx.fine;
+  return (
+    <>
+      <h3 className="animate-stamp font-display text-xl">{maybeT(`court.${fx.verdict}`)}</h3>
+      <p className="text-sm italic text-fg">{maybeT(`court.quote.${fx.verdict}`)}</p>
+      <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 rounded-md border border-border bg-surface px-3 py-2 text-xs">
+        <dt className="text-muted">{maybeT("court.row.stake")}</dt>
+        <dd className="tabular-nums">{money(trial.stake)}</dd>
+        <dt className="text-muted">{maybeT("court.row.fine")}</dt>
+        <dd className="tabular-nums text-danger">{money(fx.fine)}</dd>
+        <dt className="text-muted">{maybeT("court.row.days")}</dt>
+        <dd className="tabular-nums">{fx.days}</dd>
+        <dt className="text-muted">{maybeT("court.row.seize")}</dt>
+        <dd className="tabular-nums">{qty(take)} CEU</dd>
+        <dt className="text-muted">{maybeT("court.row.heat")}</dt>
+        <dd className="tabular-nums">{fx.heatAfter}</dd>
+        <dt className="text-muted">{maybeT("court.row.rep")}</dt>
+        <dd className="tabular-nums">{fx.repHit > 0 ? `+${fx.repHit}` : fx.repHit}</dd>
+        <dt className="text-muted">{maybeT("court.row.cash")}</dt>
+        <dd className={cn("tabular-nums", after < 0 ? "text-danger" : "text-fg")}>{money(after)}</dd>
+      </dl>
+      <p className="text-xs text-muted">
+        {maybeT(`court.next.${fx.verdict}`, { n: money(fx.fine), days: fx.days, ceu: qty(take) })}
+      </p>
+      {after < 0 ? <p className="text-xs text-warn">{maybeT("court.next.credit")}</p> : null}
+      <Button className="w-full" onClick={onContinue}>
+        {maybeT("court.continue")}
+      </Button>
+    </>
+  );
+}
+
+function drawCabinet(ctx: CanvasRenderingContext2D, R: number) {
+  ctx.beginPath();
+  ctx.arc(0, 0, R * 1.26, 0, Math.PI * 2);
+  ctx.fillStyle = "#2a1a0e";
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(0, 0, R * 1.2, 0, Math.PI * 2);
+  const wood = ctx.createRadialGradient(0, 0, R * 0.4, 0, 0, R * 1.2);
+  wood.addColorStop(0, "#5a3a1c");
+  wood.addColorStop(0.7, "#3a2414");
+  wood.addColorStop(1, "#1a1008");
+  ctx.fillStyle = wood;
+  ctx.fill();
+  ctx.strokeStyle = "rgba(201,160,106,0.35)";
+  ctx.lineWidth = 1.2;
+  for (let i = 0; i < 7; i++) {
+    ctx.beginPath();
+    ctx.arc(-R * 0.08, R * 0.06, R * (1.04 + i * 0.022), 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.arc(0, 0, R * 1.14, 0, Math.PI * 2);
+  ctx.fillStyle = "#1a1008";
+  ctx.fill();
+  ctx.strokeStyle = "#c9a06a";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+}
+
+const DART_NUMS = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
+
+function drawSisal(ctx: CanvasRenderingContext2D, R: number) {
+  const dark = "#1a3a22";
+  const pale = "#cfc6b4";
+  const red = "#9a2e24";
+  const green = "#2a6b38";
+  const start = -Math.PI / 2 - Math.PI / 20;
+  for (let i = 0; i < 20; i++) {
+    const a0 = start + (i / 20) * Math.PI * 2;
+    const a1 = start + ((i + 1) / 20) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, R, a0, a1);
+    ctx.closePath();
+    ctx.fillStyle = i % 2 === 0 ? dark : pale;
+    ctx.fill();
+  }
+  for (const [outer, inner] of [
+    [1, 0.93],
+    [0.64, 0.57],
+  ] as const) {
+    for (let i = 0; i < 20; i++) {
+      const a0 = start + (i / 20) * Math.PI * 2;
+      const a1 = start + ((i + 1) / 20) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, outer * R, a0, a1);
+      ctx.arc(0, 0, inner * R, a1, a0, true);
+      ctx.closePath();
+      ctx.fillStyle = i % 2 === 0 ? red : green;
+      ctx.fill();
+    }
+  }
+  ctx.strokeStyle = WIRE;
+  ctx.globalAlpha = 0.55;
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 20; i++) {
+    const a = start + (i / 20) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(a) * R, Math.sin(a) * R);
+    ctx.stroke();
+  }
+  for (const r of [1, 0.93, 0.64, 0.57, 0.12]) {
+    ctx.beginPath();
+    ctx.arc(0, 0, r * R, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  ctx.beginPath();
+  ctx.arc(0, 0, 0.12 * R, 0, Math.PI * 2);
+  ctx.fillStyle = "#6b1c14";
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(0, 0, 0.05 * R, 0, Math.PI * 2);
+  ctx.fillStyle = "#c45c4a";
+  ctx.fill();
+  ctx.fillStyle = WIRE;
+  ctx.font = `${Math.max(11, Math.round(R * 0.1))}px "IBM Plex Sans", sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  for (let i = 0; i < 20; i++) {
+    const a = -Math.PI / 2 + (i / 20) * Math.PI * 2;
+    ctx.fillText(String(DART_NUMS[i]!), Math.cos(a) * R * 1.12, Math.sin(a) * R * 1.12);
+  }
+}
+
 function drawDart(ctx: CanvasRenderingContext2D, x: number, y: number, p: number) {
   ctx.save();
   ctx.translate(x, y);
-  ctx.rotate(-0.7);
-  ctx.globalAlpha = Math.min(1, 0.3 + p);
+  ctx.rotate(-0.72);
+  ctx.globalAlpha = Math.min(1, 0.25 + p);
+  ctx.fillStyle = "rgba(7,16,24,0.35)";
+  ctx.beginPath();
+  ctx.ellipse(4, 6, 7, 3, 0.2, 0, Math.PI * 2);
+  ctx.fill();
   ctx.fillStyle = FG;
   ctx.beginPath();
-  ctx.moveTo(0, -11);
-  ctx.lineTo(3.5, 6);
-  ctx.lineTo(0, 3);
-  ctx.lineTo(-3.5, 6);
+  ctx.moveTo(0, -13);
+  ctx.lineTo(4.2, 5);
+  ctx.lineTo(0, 2);
+  ctx.lineTo(-4.2, 5);
   ctx.closePath();
   ctx.fill();
-  ctx.strokeStyle = ACCENT;
-  ctx.lineWidth = 1.5;
+  ctx.fillStyle = ACCENT;
   ctx.beginPath();
-  ctx.moveTo(0, 3);
-  ctx.lineTo(0, 16);
+  ctx.moveTo(0, -13);
+  ctx.lineTo(2.2, -2);
+  ctx.lineTo(-2.2, -2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "#8a8a7c";
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(0, 2);
+  ctx.lineTo(0, 18);
   ctx.stroke();
+  ctx.fillStyle = DANGER;
+  ctx.beginPath();
+  ctx.moveTo(-3.2, 18);
+  ctx.lineTo(0, 22);
+  ctx.lineTo(3.2, 18);
+  ctx.closePath();
+  ctx.fill();
   ctx.restore();
 }
