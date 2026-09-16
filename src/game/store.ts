@@ -33,6 +33,9 @@ import {
   hirePilot,
   finishHelm,
   scrapeHelm,
+  hireCounsel as hireCounselSim,
+  lockThrow as lockThrowSim,
+  settleCourt as settleCourtSim,
 } from "./sim";
 import { sinkHelm, resolveWreck } from "./wreck";
 import { persist, loadSave, hasSaveFlag, clearSave } from "./save";
@@ -89,6 +92,9 @@ type Store = {
   sinkHelm: () => void;
   resolveWreck: () => void;
   setAutoPilot: (v: boolean) => void;
+  hireCounsel: (tier: 0 | 1 | 2) => void;
+  lockThrow: (x: number, y: number) => void;
+  settleCourt: () => void;
 };
 
 const AUTO_KEY = "poc-autopilot";
@@ -371,6 +377,9 @@ export const useGame = create<Store>((set, get) => ({
     }
     if (state.phase === "end") stash(state);
     if (["brandaward", "greengrant", "streak", "ceumark"].includes(prev.event?.id ?? "")) chime();
+    if (state.trial && !prev.trial) {
+      set({ state, ui: { ...get().ui, tempo: 0 } });
+    }
   },
   retire: () => {
     const state = endCareer(get().state, "retired");
@@ -402,7 +411,7 @@ export const useGame = create<Store>((set, get) => ({
   tick: (dtDays) => {
     const st = get().state;
     if (st.phase === "event" || st.phase === "end" || st.phase === "title") return;
-    if (st.helm) return;
+    if (st.helm || st.trial) return;
     if (!st.legs.length && !fleetHasBarge(st)) return;
     try {
       const n0 = st.legs.length;
@@ -424,6 +433,12 @@ export const useGame = create<Store>((set, get) => ({
         set({ state, ui: { ...ui, tempo: 0, lastTempo: last } });
         return;
       }
+      if (state.trial && !st.trial) {
+        const last = ui.tempo === 0 ? ui.lastTempo : ui.tempo;
+        persist(state);
+        set({ state, ui: { ...ui, tempo: 0, lastTempo: last } });
+        return;
+      }
       const bargeDone = barge0 && !fleetHasBarge(state);
       if (state.legs.length < n0 || bargeDone) {
         const last = ui.tempo === 0 ? ui.lastTempo : ui.tempo;
@@ -439,6 +454,27 @@ export const useGame = create<Store>((set, get) => ({
       }
     } catch {
       /* keep the last good frame */
+    }
+  },
+  hireCounsel: (tier) => {
+    const state = hireCounselSim(get().state, tier);
+    persist(state);
+    set({ state });
+    blip(240);
+  },
+  lockThrow: (x, y) => {
+    const state = lockThrowSim(get().state, x, y);
+    persist(state);
+    set({ state });
+  },
+  settleCourt: () => {
+    const state = settleCourtSim(get().state);
+    persist(state);
+    const ui = get().ui;
+    set({ state, ui: { ...ui, tempo: 0 } });
+    if (state.phase === "end" && state.endKind === "broke") {
+      stash(state);
+      foghorn();
     }
   },
 }));

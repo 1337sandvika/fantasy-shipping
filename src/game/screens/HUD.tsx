@@ -3,6 +3,7 @@ import { formatDate, money, qty, qty3 } from "../format";
 import { activeLeg, activeShip, remainingCeu, destSummary, burnPerNm, co2PerNm } from "../fleet";
 import { portName } from "../data/ports";
 import { useGame } from "../store";
+import { HeatMeter } from "./HeatMeter";
 
 export function HUD() {
   const s = useGame((g) => g.state);
@@ -48,13 +49,10 @@ export function HUD() {
           <span className="text-subtle"> {t("hud.perNm")}</span>
         </p>
       ) : null}
-      {s.heat >= 1 || (ship?.hold.some((l) => l.grey) ?? false) ? (
-        <p
-          className="tabular-nums text-warn"
-          title={t("hud.heatHint", { n: s.heat })}
-        >
-          {t("hud.heat")} {s.heat}
-        </p>
+      {s.heat >= 1 || s.probe || (ship?.hold.some((l) => l.grey) ?? false) ? (
+        <div title={t("hud.heatHint", { n: s.heat })}>
+          <HeatMeter heat={s.heat} probe={s.probe} trial={Boolean(s.trial)} compact />
+        </div>
       ) : null}
       {(s.onTimeStreak ?? 0) >= 2 ? (
         <p className="hidden tabular-nums text-accent sm:block">{t("hud.streak", { n: s.onTimeStreak })}</p>

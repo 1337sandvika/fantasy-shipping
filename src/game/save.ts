@@ -3,7 +3,7 @@ import { refillLots, refreshTc } from "./sim";
 import type { CargoKind, Charter, CharterKind, EndKind, GameState, Lot, SaveBlob, Ship, TcOffer, UpgradeId, Voyage } from "./types";
 
 export const SAVE_KEY = "uecc-ports-of-call-v2";
-export const SAVE_VERSION = 13;
+export const SAVE_VERSION = 14;
 
 const KINDS: CargoKind[] = ["cars", "vans", "trucks", "hh"];
 const UPGRADES: UpgradeId[] = ["scrubber", "prop", "ice", "lashing", "fuelopt", "tankcoat", "hhdeck"];
@@ -87,6 +87,23 @@ export function hydrate(state: GameState): GameState {
     charters,
     seed,
     heat: state.heat ?? 0,
+    greyEarned: state.greyEarned ?? 0,
+    heatBeat: state.heatBeat ?? 0,
+    heatNoteDay: state.heatNoteDay ?? -99,
+    probe: Boolean(state.probe),
+    trial:
+      state.trial && typeof state.trial.stake === "number"
+        ? {
+            stake: state.trial.stake,
+            lawyer: (state.trial.lawyer === 1 || state.trial.lawyer === 2 ? state.trial.lawyer : 0) as 0 | 1 | 2,
+            phase: state.trial.phase === "throw" || state.trial.phase === "verdict" ? state.trial.phase : "counsel",
+            x: state.trial.x,
+            y: state.trial.y,
+            dist: state.trial.dist,
+            verdict: state.trial.verdict,
+            fine: state.trial.fine,
+          }
+        : null,
     etsAcc: state.etsAcc ?? 0,
     debt: state.debt ?? 0,
     legs,
@@ -139,7 +156,7 @@ export function loadSave(): GameState | null {
     if (!raw) return null;
     const blob = JSON.parse(raw) as SaveBlob;
     if (!blob?.state) return null;
-    if (blob.v !== 4 && blob.v !== 5 && blob.v !== 6 && blob.v !== 7 && blob.v !== 8 && blob.v !== 9 && blob.v !== 10 && blob.v !== 11 && blob.v !== 12 && blob.v !== 13)
+    if (blob.v !== 4 && blob.v !== 5 && blob.v !== 6 && blob.v !== 7 && blob.v !== 8 && blob.v !== 9 && blob.v !== 10 && blob.v !== 11 && blob.v !== 12 && blob.v !== 13 && blob.v !== 14)
       return null;
     let rawState = blob.state;
     if (rawState.phase === "title") {

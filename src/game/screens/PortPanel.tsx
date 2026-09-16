@@ -43,6 +43,7 @@ import { daysLeft, formatDate, money, qty, qty1, qty3 } from "../format";
 import { inEurope } from "../geo";
 import { seaRoute } from "../route";
 import { useGame } from "../store";
+import { HeatMeter } from "./HeatMeter";
 import type { Lot, Ship, Tab } from "../types";
 
 function lotKind(l: Lot, t: (k: MsgKey) => string) {
@@ -1096,6 +1097,8 @@ function LogTab() {
   const news = useGame((g) => g.state.news);
   const honours = useGame((g) => g.state.honours) ?? [];
   const heat = useGame((g) => g.state.heat) ?? 0;
+  const probe = useGame((g) => g.state.probe);
+  const greyEarned = useGame((g) => g.state.greyEarned) ?? 0;
   const fines = useGame((g) => g.state.fines) ?? 0;
   const ship = useGame((g) => activeShip(g.state));
   const greyCeu = ship?.hold.filter((l) => l.grey).reduce((a, l) => a + l.ceu, 0) ?? 0;
@@ -1104,7 +1107,20 @@ function LogTab() {
     <div className="space-y-3">
       <div className="rounded-md border border-warn/30 bg-warn/10 px-3 py-2">
         <p className="text-[10px] uppercase tracking-wider text-warn">{t("heat.title")}</p>
-        <p className="mt-1 text-sm">{t("heat.body", { n: heat, ceu: greyCeu, fines: money(fines) })}</p>
+        <div className="mt-2">
+          <HeatMeter heat={heat} probe={probe} />
+        </div>
+        <p className="mt-2 text-sm">{maybeT("heat.body2", { n: heat, take: money(greyEarned), band: maybeT(`heat.band.${probe || heat >= 48 ? "probe" : heat >= 32 ? "watch" : heat >= 16 ? "rumor" : "quiet"}`) })}</p>
+        <p className="mt-1 text-xs text-muted">{t("heat.body", { n: heat, ceu: greyCeu, fines: money(fines) })}</p>
+        {heat >= 16 ? (
+          <p className="mt-1 text-xs text-warn">
+            {probe
+              ? maybeT("heat.hint.probe")
+              : heat >= 32
+                ? maybeT("heat.hint.watch")
+                : maybeT("heat.hint.rumor")}
+          </p>
+        ) : null}
       </div>
       {honours.length ? (
         <div>

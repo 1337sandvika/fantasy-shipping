@@ -14,6 +14,7 @@ import { SettingsSheet } from "./screens/SettingsSheet";
 import { Paywall } from "./screens/Paywall";
 import { TitleScreen } from "./screens/TitleScreen";
 import { HelmOverlay } from "./screens/HelmOverlay";
+import { CourtOverlay } from "./screens/CourtOverlay";
 import { hydrateIap, iapCanPlay, refreshTrialClock, useIap } from "@/lib/iap";
 import { hydrateSaveFlag, useGame } from "./store";
 import { setMuted } from "./audio";
@@ -48,6 +49,7 @@ export function Game() {
         g.state.phase !== "title" &&
         g.state.phase !== "end" &&
         !g.state.helm &&
+        !g.state.trial &&
         !g.ui.settings &&
         iapCanPlay()
       ) {
@@ -193,6 +195,7 @@ function SplitHandle({
 function CareerShell() {
   const phase = useGame((s) => s.state.phase);
   const helm = useGame((s) => s.state.helm);
+  const trial = useGame((s) => s.state.trial);
   const settings = useGame((s) => s.ui.settings);
   const mapHud = useGame((s) => s.ui.mapHud) !== false;
   const setSettings = useGame((s) => s.setSettings);
@@ -252,8 +255,9 @@ function CareerShell() {
           <PortPanel />
         </div>
       </div>
-      {phase === "event" && !helm ? <EventModal /> : null}
+      {phase === "event" && !helm && !trial ? <EventModal /> : null}
       {helm ? <HelmOverlay /> : null}
+      {trial && !helm ? <CourtOverlay /> : null}
       <EtsModal />
       {settings ? <SettingsSheet /> : null}
       {locked || paywallOpen ? <Paywall blocking onLeaveToTitle={toTitle} /> : null}
@@ -266,12 +270,12 @@ function StatusBanners() {
   const setTab = useGame((g) => g.setTab);
   const ship = activeShip(s);
   const t = useT();
-  if (s.phase === "event" || s.helm) return null;
+  if (s.phase === "event" || s.helm || s.trial) return null;
   const left = ship ? drydockLeft(ship, s.day) : 99;
   const bargeDays = ship ? bargeLeft(ship, s.day) : 0;
   const heat = s.heat ?? 0;
   const ddWarn = Boolean(ship) && left <= 40;
-  const heatWarn = heat >= 22;
+  const heatWarn = heat >= 16 || Boolean(s.probe);
   const etsWarn = Boolean(s.ets) || (s.etsAcc ?? 0) > 80;
   const bargeWarn = bargeDays > 0;
   const tcOverdue = (s.charters ?? []).some((c) => c.kind === "in" && s.day + 1e-6 >= c.untilDay);
@@ -291,7 +295,11 @@ function StatusBanners() {
           {t("hud.drydock", { n: Math.round(left) })}
         </button>
       ) : null}
-      {heatWarn ? <span className="text-warn">{t("lot.grey")}</span> : null}
+      {heatWarn ? (
+        <span className={heat >= 48 || s.probe ? "text-danger" : "text-warn"}>
+          {maybeT(`heat.band.${heat >= 48 || s.probe ? "probe" : heat >= 32 ? "watch" : "rumor"}`)}
+        </span>
+      ) : null}
       {etsWarn ? <span className="text-warn">{t("ets.title")}</span> : null}
     </div>
   );

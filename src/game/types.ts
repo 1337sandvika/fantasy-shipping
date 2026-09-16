@@ -144,6 +144,17 @@ export type HelmJob = {
   shipName?: string;
 };
 
+export type TrialJob = {
+  stake: number;
+  lawyer: 0 | 1 | 2;
+  phase: "counsel" | "throw" | "verdict";
+  x?: number;
+  y?: number;
+  dist?: number;
+  verdict?: "acquit" | "slap" | "guilty" | "miss";
+  fine?: number;
+};
+
 export type GameState = {
   phase: Phase;
   captain: string;
@@ -158,6 +169,11 @@ export type GameState = {
   voyages: number;
   deliveredCeu: number;
   heat: number;
+  greyEarned: number;
+  heatBeat: number;
+  heatNoteDay: number;
+  probe: boolean;
+  trial: TrialJob | null;
   ets: EtsBill;
   etsAcc: number;
   lastEtsMonth: number;

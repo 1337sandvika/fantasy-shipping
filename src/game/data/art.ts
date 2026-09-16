@@ -13,6 +13,8 @@ export function eventArt(id: string): string | null {
     radio: "/game/events/grey.jpg",
     nightdeal: "/game/events/grey.jpg",
     snitch: "/game/events/customs.jpg",
+    rumor: "/game/events/customs.jpg",
+    probe: "/game/events/arrest.jpg",
     stash: "/game/events/lash.jpg",
     ribdrop: "/game/events/cutter.jpg",
     hhdeal: "/game/events/hh.jpg",
