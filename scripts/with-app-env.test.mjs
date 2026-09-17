@@ -11,6 +11,7 @@ import {
   parseAppEnv,
   projectRoot,
   readAppEnv,
+  resolveCommand,
 } from "./with-app-env.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -97,6 +98,13 @@ test("the wrapper propagates the command's exit code", async () => {
     execFileAsync(process.execPath, [WRAPPER, process.execPath, "-e", "process.exit(3)"]),
     (err) => err.code === 3,
   );
+});
+
+test("resolves package binaries through Windows command shims", () => {
+  const suffix = process.platform === "win32" ? ".cmd" : "";
+  assert.equal(resolveCommand("vite"), `vite${suffix}`);
+  assert.equal(resolveCommand("npm"), `npm${suffix}`);
+  assert.equal(resolveCommand(process.execPath), process.execPath);
 });
 
 test("a signal-killed command is never reported as success", async () => {

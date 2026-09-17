@@ -22,6 +22,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { resolveCommand } from "./with-app-env.mjs";
 
 const PREVIEW_PORT = 8081;
 const PREVIEW_URL = `http://127.0.0.1:${PREVIEW_PORT}/`;
@@ -297,10 +298,11 @@ async function restart() {
 
   mkdirSync(dirname(LOG_FILE), { recursive: true });
   const log = openSync(LOG_FILE, "a");
-  const child = spawn("npm", ["run", "preview"], {
+  const child = spawn(resolveCommand("npm"), ["run", "preview"], {
     cwd: ROOT,
     detached: true,
     stdio: ["ignore", log, log],
+    shell: process.platform === "win32",
   });
   child.unref();
   writeFileSync(PID_FILE, `${child.pid}\n`);
