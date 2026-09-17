@@ -10,14 +10,18 @@
 import { spawn } from "node:child_process";
 import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { mergeAppEnv, projectRoot, readAppEnv } from "./with-app-env.mjs";
+import { mergeAppEnv, projectRoot, readAppEnv, resolveCommand } from "./with-app-env.mjs";
 
 const DEFAULT_API = "https://palm-river-olive-field.grok.me";
 
 function run(command, args, env) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: "inherit", env, cwd: projectRoot() });
+    const child = spawn(resolveCommand(command), args, {
+      stdio: "inherit",
+      env,
+      cwd: projectRoot(),
+      shell: process.platform === "win32" && ["vite", "npm", "npx"].includes(command),
+    });
     child.on("error", reject);
     child.on("exit", (code) => {
       if (code === 0) resolve();
