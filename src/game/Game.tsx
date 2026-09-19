@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronsDown, ChevronsUp, Settings } from "lucide-react";
+import { ChevronsDown, ChevronsUp, Flag, Settings } from "lucide-react";
 import { maybeT, useT } from "@/i18n";
 import { MapCanvas } from "./MapCanvas";
 import { persist } from "./save";
@@ -15,6 +15,9 @@ import { Paywall } from "./screens/Paywall";
 import { TitleScreen } from "./screens/TitleScreen";
 import { HelmOverlay } from "./screens/HelmOverlay";
 import { CourtOverlay } from "./screens/CourtOverlay";
+import { HelpButton, OnboardingGuide } from "./screens/OnboardingGuide";
+import { SocialDesk } from "./screens/SocialDesk";
+import { bootSocial, useSocial } from "./social/store";
 import { hydrateIap, iapCanPlay, refreshTrialClock, useIap } from "@/lib/iap";
 import { hydrateSaveFlag, useGame } from "./store";
 import { setMuted } from "./audio";
@@ -31,7 +34,13 @@ export function Game() {
   useEffect(() => {
     hydrateSaveFlag();
     void hydrateIap();
+    bootSocial();
     (window as unknown as { __game?: typeof useGame }).__game = useGame;
+    const unsub = useGame.subscribe((s, prev) => {
+      if (s.state === prev.state) return;
+      useSocial.getState().applyCareer(prev.state, s.state);
+    });
+    return unsub;
   }, []);
 
   useEffect(() => {
@@ -202,6 +211,9 @@ function CareerShell() {
   const setSettings = useGame((s) => s.setSettings);
   const setMapHud = useGame((s) => s.setMapHud);
   const toTitle = useGame((s) => s.toTitle);
+  const desk = useSocial((s) => s.desk);
+  const setDesk = useSocial((s) => s.setDesk);
+  const guide = useSocial((s) => s.guide);
   const t = useT();
   const locked = useIap((s) => s.gating && s.ready && !s.canPlay);
   const paywallOpen = useIap((s) => s.paywallOpen);
@@ -232,14 +244,25 @@ function CareerShell() {
               {mapHud ? <ChevronsDown className="size-4" strokeWidth={1.75} /> : <ChevronsUp className="size-4" strokeWidth={1.75} />}
             </button>
             {mapHud ? (
-              <button
-                type="button"
-                onClick={() => setSettings(true)}
-                className="icon-btn"
-                aria-label={t("set.title")}
-              >
-                <Settings className="size-4" strokeWidth={1.75} />
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => setSettings(true)}
+                  className="icon-btn"
+                  aria-label={t("set.title")}
+                >
+                  <Settings className="size-4" strokeWidth={1.75} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDesk(true, "today")}
+                  className="icon-btn"
+                  aria-label={t("desk.title")}
+                >
+                  <Flag className="size-4" strokeWidth={1.75} />
+                </button>
+                <HelpButton />
+              </>
             ) : null}
           </div>
           {mapHud ? (
@@ -261,6 +284,8 @@ function CareerShell() {
       {trial && !helm ? <CourtOverlay /> : null}
       <EtsModal />
       {settings ? <SettingsSheet /> : null}
+      {desk ? <SocialDesk /> : null}
+      {guide ? <OnboardingGuide /> : null}
       {locked || paywallOpen ? <Paywall blocking onLeaveToTitle={toTitle} /> : null}
     </div>
   );

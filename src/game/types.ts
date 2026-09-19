@@ -69,7 +69,7 @@ export type Voyage = {
   fullRevs: boolean;
 };
 
-export type HonourKind = "brand" | "green" | "streak" | "ceu" | "ice";
+export type HonourKind = "brand" | "green" | "streak" | "ceu" | "ice" | "daily" | "challenge";
 
 export type Honour = {
   id: string;

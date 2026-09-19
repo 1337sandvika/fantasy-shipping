@@ -36,12 +36,14 @@ import {
   hireCounsel as hireCounselSim,
   lockThrow as lockThrowSim,
   settleCourt as settleCourtSim,
+  grantPlaque,
 } from "./sim";
 import { sinkHelm, resolveWreck } from "./wreck";
 import { persist, loadSave, hasSaveFlag, clearSave } from "./save";
 import { blip, chime, foghorn } from "./audio";
 import { activeShip, bunkerPlanFor, fleetHasBarge, fleetValue } from "./fleet";
 import { writePendingScore } from "./pending-score";
+import { useSocial } from "./social/store";
 
 type Store = {
   state: GameState;
@@ -95,6 +97,8 @@ type Store = {
   hireCounsel: (tier: 0 | 1 | 2) => void;
   lockThrow: (x: number, y: number) => void;
   settleCourt: () => void;
+  claimDaily: () => void;
+  claimChallenge: (id: string) => void;
 };
 
 const AUTO_KEY = "poc-autopilot";
@@ -476,6 +480,36 @@ export const useGame = create<Store>((set, get) => ({
       stash(state);
       foghorn();
     }
+  },
+  claimDaily: () => {
+    const reward = useSocial.getState().markDailyClaimed();
+    if (!reward) return;
+    const st = get().state;
+    if (st.phase === "title" || st.phase === "end") return;
+    const state = grantPlaque(
+      st,
+      { id: `dly-${Math.round(st.day)}-${reward.n}`, kind: "daily", day: st.day, n: reward.n, cash: reward.cash },
+      reward.cash,
+      1,
+    );
+    persist(state);
+    set({ state });
+    chime();
+  },
+  claimChallenge: (id) => {
+    const reward = useSocial.getState().markChallengeClaimed(id);
+    if (!reward) return;
+    const st = get().state;
+    if (st.phase === "title" || st.phase === "end") return;
+    const state = grantPlaque(
+      st,
+      { id: `ch-${id}`, kind: "challenge", day: st.day, cash: reward.cash },
+      reward.cash,
+      1,
+    );
+    persist(state);
+    set({ state });
+    chime();
   },
 }));
 

@@ -12,6 +12,9 @@ import { requirePlay, useIap } from "@/lib/iap";
 import { AuthBar } from "./AuthBar";
 import { Paywall, TrialChip } from "./Paywall";
 import { TourneyTeaser } from "./OfficialTournaments";
+import { HelpButton, OnboardingGuide } from "./OnboardingGuide";
+import { SocialDesk, TodayStrip } from "./SocialDesk";
+import { bootSocial, useSocial } from "../social/store";
 
 export function TitleScreen() {
   const start = useGame((s) => s.start);
@@ -27,6 +30,16 @@ export function TitleScreen() {
   const filledName = useRef(false);
   const t = useT();
   const paywallOpen = useIap((s) => s.paywallOpen);
+  const setGuide = useSocial((s) => s.setGuide);
+  const setDesk = useSocial((s) => s.setDesk);
+  const guide = useSocial((s) => s.guide);
+  const desk = useSocial((s) => s.desk);
+
+  useEffect(() => {
+    bootSocial();
+    const done = useSocial.getState().blob.onboardingDone;
+    if (!done) setGuide(true, 0);
+  }, [setGuide]);
 
   useEffect(() => {
     if (isPending || !user) return;
@@ -53,7 +66,8 @@ export function TitleScreen() {
       <img src="/game/title-hero.jpg?v=3" alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
       <div className="harbour-hero absolute inset-0" />
       <div className="compass-wash pointer-events-none absolute inset-0 opacity-80" />
-      <div className="relative z-10 flex justify-end px-4 pt-4 sm:px-10">
+      <div className="relative z-10 flex items-start justify-between gap-3 px-4 pt-4 sm:px-10">
+        <HelpButton />
         <AuthBar />
       </div>
       <div className="screen-in relative z-10 flex flex-1 flex-col justify-end px-5 pb-10 pt-8 sm:px-10">
@@ -116,13 +130,21 @@ export function TitleScreen() {
           <button type="button" className="link-quiet" onClick={() => setAbout(true)}>
             {t("title.about")}
           </button>
+          <button type="button" className="link-quiet" onClick={() => setDesk(true, "today")}>
+            {t("title.desk")}
+          </button>
           <Link to="/scoreboard" className="link-quiet">
             {t("title.board")}
           </Link>
           <TourneyTeaser />
         </div>
+        <div className="mt-4 max-w-md">
+          <TodayStrip onOpen={() => setDesk(true, "today")} />
+        </div>
       </div>
       {paywallOpen ? <Paywall /> : null}
+      {guide ? <OnboardingGuide /> : null}
+      {desk ? <SocialDesk /> : null}
       {about ? (
         <div className="scrim absolute inset-0 z-20 grid place-items-center p-4" role="dialog">
           <div className="sheet panel max-w-lg p-6">

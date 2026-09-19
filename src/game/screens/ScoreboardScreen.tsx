@@ -28,6 +28,10 @@ import {
 } from "../score-api";
 import { AuthBar } from "./AuthBar";
 import { OfficialList } from "./OfficialTournaments";
+import { ChallengeRail, TodayStrip } from "./SocialDesk";
+import { LineCard } from "./LineCard";
+import { liveSnapshot, useSocial } from "../social/store";
+import { useGame } from "../store";
 
 type Tab = "play" | "mine" | "league";
 
@@ -111,7 +115,12 @@ export function ScoreboardScreen() {
       </nav>
 
       <main className="screen-in relative z-10 mx-auto w-full max-w-3xl flex-1 px-4 py-7 sm:px-8">
-        {tab === "play" ? <OfficialList signedIn={Boolean(user)} pending={isPending} /> : null}
+        {tab === "play" ? (
+          <div className="space-y-4">
+            <TodayStrip onOpen={() => useSocial.getState().setDesk(true, "today")} />
+            <OfficialList signedIn={Boolean(user)} pending={isPending} />
+          </div>
+        ) : null}
         {tab === "mine" ? <MineTab signedIn={Boolean(user)} pending={isPending} /> : null}
         {tab === "league" ? <LeagueTab signedIn={Boolean(user)} pending={isPending} /> : null}
       </main>
@@ -141,6 +150,19 @@ function MineTab({ signedIn, pending }: { signedIn: boolean; pending: boolean })
   const [rows, setRows] = useState<MyCareerRow[] | null>(null);
   const [global, setGlobal] = useState<BoardRow[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const career = useGame((g) => g.state);
+  const handle = useSocial((s) => s.blob.selfHandle);
+  const snap = liveSnapshot(career, handle || career.company || career.captain || t("auth.captain"));
+  const liveCard = (
+    <>
+      <TodayStrip onOpen={() => useSocial.getState().setDesk(true, "today")} />
+      {snap ? (
+        <div className="mt-4">
+          <LineCard snap={snap} mine />
+        </div>
+      ) : null}
+    </>
+  );
 
   useEffect(() => {
     if (!signedIn) return;
@@ -160,20 +182,40 @@ function MineTab({ signedIn, pending }: { signedIn: boolean; pending: boolean })
     };
   }, [signedIn, t]);
 
-  if (pending) return <p className="text-sm text-muted">{t("board.fetchMine")}</p>;
+  if (pending) {
+    return (
+      <div>
+        {liveCard}
+        <p className="mt-4 text-sm text-muted">{t("board.fetchMine")}</p>
+      </div>
+    );
+  }
   if (!signedIn) {
-    return <NeedAccount title={t("board.needInternTitle")} body={t("board.needInternBody")} />;
+    return (
+      <div className="space-y-4">
+        {liveCard}
+        <NeedAccount title={t("board.needInternTitle")} body={t("board.needInternBody")} />
+      </div>
+    );
   }
   if (err) return <p className="text-sm text-danger">{err}</p>;
   if (!rows) return <p className="text-sm text-muted">{t("board.fetchMine")}</p>;
-  if (rows.length === 0) return <p className="text-sm text-muted">{t("board.emptyMine")}</p>;
+  if (rows.length === 0) {
+    return (
+      <div>
+        {liveCard}
+        <p className="mt-4 text-sm text-muted">{t("board.emptyMine")}</p>
+      </div>
+    );
+  }
 
   const best = [...rows].sort((a, b) => b.points - a.points)[0]!;
   const place = global?.find((r) => r.mine)?.rank;
 
   return (
     <div>
-      <h2 className="font-display text-xl">{t("board.internHeader")}</h2>
+      {liveCard}
+      <h2 className="mt-6 font-display text-xl">{t("board.internHeader")}</h2>
       <p className="mt-1 text-sm text-muted">
         {t("board.bestCareer", { kind: t(`end.kind.${best.endKind}` as MsgKey) })} · {qty(best.points)}
       </p>
@@ -744,6 +786,15 @@ function LeagueDetail({
         ) : (
           <BoardTable rows={board.rows} kind={board.meta.scoring} />
         )
+      ) : null}
+
+      {board ? (
+        <ChallengeRail
+          leagueId={league.id}
+          mates={board.rows
+            .filter((r) => !r.mine)
+            .map((r) => ({ handle: r.handle, points: r.points, deliveredCeu: r.deliveredCeu, day: r.day }))}
+        />
       ) : null}
 
       {board && board.past.length > 0 ? <PastSeasons past={board.past} /> : null}
