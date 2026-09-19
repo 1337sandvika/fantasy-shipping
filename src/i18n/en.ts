@@ -60,7 +60,12 @@ export const en = {
   "iap.unlocked": "Unlocked. Fair winds.",
   "iap.none": "No purchase found for this Apple ID.",
   "iap.fail": "Could not complete the purchase. Try again, or Restore Purchases.",
+  "iap.unavailable": "The unlock product is not available in the App Store yet.",
   "iap.pricePending": "Price comes from the App Store once the product is live.",
+  "iap.continueTesting": "Continue testing (free)",
+  "iap.continueTestingHint":
+    "The App Store product is not live yet. Start another 14-day trial — your career save stays.",
+  "iap.testing": "Testing access renewed. Fair winds.",
   "iap.settings": "Full career",
   "iap.owned": "Full career unlocked on this Apple ID.",
   "iap.close": "Not now",

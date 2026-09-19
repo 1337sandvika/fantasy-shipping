@@ -9,7 +9,7 @@ import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { cn } from "@/lib/utils";
 import { persist } from "../save";
 import { createLeague, joinLeague, listMyLeagues, type LeagueSummary } from "../score-api";
-import { purchase, restore, useIap } from "@/lib/iap";
+import { continueTesting, purchase, restore, shouldOfferContinueTesting, useIap } from "@/lib/iap";
 import { useGame } from "../store";
 import { OfficialList } from "./OfficialTournaments";
 
@@ -222,9 +222,17 @@ export function SettingsSheet() {
 
 function IapBlock() {
   const t = useT();
-  const { gating, ready, isUnlocked, trialActive, trialDaysLeft, busy, error, note, priceString } = useIap();
+  const { gating, ready, isUnlocked, trialActive, trialDaysLeft, busy, error, note, priceString } =
+    useIap();
   if (!gating) return null;
   const priceLabel = priceString ? t("iap.unlock", { price: priceString }) : t("iap.unlockFallback");
+  const offerTesting = shouldOfferContinueTesting({
+    gating,
+    ready,
+    isUnlocked,
+    priceString,
+    error,
+  });
   return (
     <section className="mt-6">
       <p className="text-xs font-medium uppercase tracking-wider text-subtle">{t("iap.settings")}</p>
@@ -237,13 +245,23 @@ function IapBlock() {
       ) : null}
       {ready && !isUnlocked && !trialActive ? <p className="mt-2 text-sm text-warn">{t("iap.trialExpired")}</p> : null}
       {note === "restored" ? <p className="mt-2 text-sm text-ok">{t("iap.restored")}</p> : null}
+      {note === "testing" ? <p className="mt-2 text-sm text-ok">{t("iap.testing")}</p> : null}
       {error === "none" ? <p className="mt-2 text-sm text-warn">{t("iap.none")}</p> : null}
       {error === "fail" ? <p className="mt-2 text-sm text-danger">{t("iap.fail")}</p> : null}
+      {error === "unavailable" ? <p className="mt-2 text-sm text-warn">{t("iap.unavailable")}</p> : null}
       <div className="mt-2 grid gap-1">
         {ready && !isUnlocked ? (
           <Button disabled={busy} onClick={() => void purchase()} className="w-full">
             {busy ? t("iap.buying") : priceLabel}
           </Button>
+        ) : null}
+        {offerTesting ? (
+          <>
+            <p className="text-xs text-subtle">{t("iap.continueTestingHint")}</p>
+            <Button variant="secondary" disabled={busy} onClick={() => continueTesting()} className="w-full">
+              {t("iap.continueTesting")}
+            </Button>
+          </>
         ) : null}
         <button
           type="button"

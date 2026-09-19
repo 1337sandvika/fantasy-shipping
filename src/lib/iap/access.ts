@@ -87,3 +87,40 @@ export function isUserCancel(err: unknown): boolean {
   // StoreKit SKError.paymentCancelled
   return code === "1" || code === "SKErrorPaymentCancelled";
 }
+
+/** StoreKit / plugin errors when the IAP SKU is missing or still Waiting for Review. */
+export function isProductUnavailable(err: unknown): boolean {
+  const code =
+    typeof err === "object" && err && "code" in err ? String((err as { code: unknown }).code) : "";
+  const msg = err instanceof Error ? err.message : String(err ?? "");
+  const blob = `${code} ${msg}`;
+  if (
+    /productNotAvailable|ITEM_UNAVAILABLE|store_product_not_available|SKErrorStoreProductNotAvailable/i.test(
+      blob,
+    )
+  ) {
+    return true;
+  }
+  return /product.+(not found|unavailable|invalid|missing)|invalid product|could not find.*product|no products?/i.test(
+    blob,
+  );
+}
+
+export type ContinueTestingInput = {
+  gating: boolean;
+  ready: boolean;
+  isUnlocked: boolean;
+  priceString: string | null;
+  error: string | null;
+};
+
+/**
+ * Native iOS only, and only while the full-unlock SKU has no live price
+ * (Waiting for Review / TestFlight) or a purchase already failed as missing.
+ * Production users with a live product never see this.
+ */
+export function shouldOfferContinueTesting(input: ContinueTestingInput): boolean {
+  if (!input.gating || !input.ready || input.isUnlocked) return false;
+  if (!input.priceString) return true;
+  return input.error === "unavailable";
+}

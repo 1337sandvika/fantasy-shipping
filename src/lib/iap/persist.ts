@@ -1,10 +1,13 @@
-import { TRIAL_START_KEY, UNLOCK_CACHE_KEY } from "./product";
+import { TRIAL_START_KEY, UNLOCK_CACHE_KEY } from "./product.ts";
 
 /**
  * Persistence rules (iOS WKWebView localStorage — same store as the career save):
  *
- * - `fs-iap-trial-start`: first-launch timestamp (ms). Written once; never moved
- *   forward. Deleting the app or wiping WebView data starts a new trial.
+ * - `fs-iap-trial-start`: first-launch timestamp (ms). Written once on first
+ *   launch. Production never moves it forward; deleting the app or wiping
+ *   WebView data starts a new trial. TestFlight / missing-product testers may
+ *   call `resetTrialStart` to open a new 14-day window. Career save keys are
+ *   never touched here.
  * - `fs-iap-unlocked`: cache of a StoreKit-confirmed unlock (`"1"`). Used to
  *   avoid a paywall flash. Source of truth is always StoreKit
  *   (`getPurchases` / the purchase transaction). A cache of `"1"` is revoked
@@ -13,9 +16,12 @@ import { TRIAL_START_KEY, UNLOCK_CACHE_KEY } from "./product";
  */
 
 function storage(): Storage | null {
-  if (typeof window === "undefined") return null;
   try {
-    return window.localStorage;
+    const g = globalThis as typeof globalThis & {
+      window?: { localStorage?: Storage };
+      localStorage?: Storage;
+    };
+    return g.window?.localStorage ?? g.localStorage ?? null;
   } catch {
     return null;
   }
@@ -31,6 +37,12 @@ export function readTrialStart(): number | null {
 export function ensureTrialStart(now = Date.now()): number {
   const existing = readTrialStart();
   if (existing) return existing;
+  storage()?.setItem(TRIAL_START_KEY, String(now));
+  return now;
+}
+
+/** Start a new 14-day trial window. Does not touch career/save or unlock-cache keys. */
+export function resetTrialStart(now = Date.now()): number {
   storage()?.setItem(TRIAL_START_KEY, String(now));
   return now;
 }

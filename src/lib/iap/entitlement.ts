@@ -1,6 +1,13 @@
 import { create } from "zustand";
-import { deriveAccess, isUserCancel, transactionGrantsUnlock, trialSnapshot } from "./access";
-import { ensureTrialStart, readTrialStart, readUnlockCache, writeUnlockCache } from "./persist";
+import {
+  deriveAccess,
+  isProductUnavailable,
+  isUserCancel,
+  shouldOfferContinueTesting,
+  transactionGrantsUnlock,
+  trialSnapshot,
+} from "./access";
+import { ensureTrialStart, readTrialStart, readUnlockCache, resetTrialStart, writeUnlockCache } from "./persist";
 import {
   isIosNative,
   listenForUnlock,
@@ -169,7 +176,7 @@ export async function purchase(): Promise<PurchaseResult> {
       useIap.setState({ busy: false, error: null });
       return "cancel";
     }
-    useIap.setState({ busy: false, error: "fail" });
+    useIap.setState({ busy: false, error: isProductUnavailable(err) ? "unavailable" : "fail" });
     return "fail";
   }
 }
@@ -202,4 +209,37 @@ export function iapCanPlay(): boolean {
   if (!s.gating) return true;
   if (s.isUnlocked) return true;
   return trialSnapshot(readTrialStart()).trialActive;
+}
+
+/**
+ * TestFlight / missing-product fallback: renew the 14-day trial clock.
+ * Does not write an unlock cache or touch career save keys. No-op when the
+ * live App Store product is available (button is hidden in that case).
+ */
+export function continueTesting(now = Date.now()): boolean {
+  const s = useIap.getState();
+  if (
+    !shouldOfferContinueTesting({
+      gating: s.gating,
+      ready: s.ready,
+      isUnlocked: s.isUnlocked,
+      priceString: s.priceString,
+      error: s.error,
+    })
+  ) {
+    return false;
+  }
+  resetTrialStart(now);
+  apply({
+    gating: true,
+    unlockedFromStore: readUnlockCache(),
+    ready: true,
+    busy: false,
+    error: null,
+    note: "testing",
+    priceString: s.priceString,
+    productTitle: s.productTitle,
+    billingSupported: s.billingSupported,
+  });
+  return true;
 }
