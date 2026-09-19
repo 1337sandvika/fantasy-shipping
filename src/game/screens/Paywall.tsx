@@ -1,6 +1,13 @@
 import { Anchor } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { closePaywall, purchase, restore, useIap } from "@/lib/iap";
+import {
+  closePaywall,
+  continueTesting,
+  purchase,
+  restore,
+  shouldOfferContinueTesting,
+  useIap,
+} from "@/lib/iap";
 import { useT } from "@/i18n";
 
 type Props = {
@@ -11,11 +18,18 @@ type Props = {
 
 export function Paywall({ blocking = false, onLeaveToTitle }: Props) {
   const t = useT();
-  const { busy, error, note, priceString, productTitle, isUnlocked } = useIap();
+  const { busy, error, note, priceString, productTitle, isUnlocked, gating, ready } = useIap();
 
   const priceLabel = priceString
     ? t("iap.unlock", { price: priceString })
     : t("iap.unlockFallback");
+  const offerTesting = shouldOfferContinueTesting({
+    gating,
+    ready,
+    isUnlocked,
+    priceString,
+    error,
+  });
 
   return (
     <div
@@ -47,13 +61,25 @@ export function Paywall({ blocking = false, onLeaveToTitle }: Props) {
         ) : note === "restored" ? (
           <p className="mt-3 text-sm text-ok">{t("iap.restored")}</p>
         ) : null}
+        {note === "testing" ? <p className="mt-3 text-sm text-ok">{t("iap.testing")}</p> : null}
         {error === "none" ? <p className="mt-3 text-sm text-warn">{t("iap.none")}</p> : null}
         {error === "fail" ? <p className="mt-3 text-sm text-danger">{t("iap.fail")}</p> : null}
+        {error === "unavailable" ? (
+          <p className="mt-3 text-sm text-warn">{t("iap.unavailable")}</p>
+        ) : null}
 
         <div className="mt-5 flex flex-col gap-2">
           <Button disabled={busy || isUnlocked} onClick={() => void purchase()}>
             {busy ? t("iap.buying") : priceLabel}
           </Button>
+          {offerTesting ? (
+            <>
+              <p className="text-xs text-subtle">{t("iap.continueTestingHint")}</p>
+              <Button variant="secondary" disabled={busy} onClick={() => continueTesting()}>
+                {t("iap.continueTesting")}
+              </Button>
+            </>
+          ) : null}
           <Button variant="secondary" disabled={busy} onClick={() => void restore()}>
             {busy ? t("iap.restoring") : t("iap.restore")}
           </Button>

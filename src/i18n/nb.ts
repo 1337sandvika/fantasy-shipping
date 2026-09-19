@@ -57,7 +57,12 @@ export const nb: Record<MsgKey, string> = {
   "iap.unlocked": "Låst opp. God vind.",
   "iap.none": "Fant ingen kjøp for denne Apple-ID-en.",
   "iap.fail": "Kjøpet kunne ikke gjennomføres. Prøv igjen, eller Gjenopprett kjøp.",
+  "iap.unavailable": "Opplåsingsproduktet er ikke tilgjengelig i App Store ennå.",
   "iap.pricePending": "Prisen kommer fra App Store når produktet er klart.",
+  "iap.continueTesting": "Fortsett testing (gratis)",
+  "iap.continueTestingHint":
+    "App Store-produktet er ikke live ennå. Start en ny 14-dagers prøveperiode — karrierelagringen beholdes.",
+  "iap.testing": "Testtilgang fornyet. God vind.",
   "iap.settings": "Hele karrieren",
   "iap.owned": "Hele karrieren er låst opp på denne Apple-ID-en.",
   "iap.close": "Ikke nå",
