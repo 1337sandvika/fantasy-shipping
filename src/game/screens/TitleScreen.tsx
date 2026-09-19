@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { HouseMark } from "@/components/ui/mark";
@@ -35,10 +35,9 @@ export function TitleScreen() {
   const guide = useSocial((s) => s.guide);
   const desk = useSocial((s) => s.desk);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     bootSocial();
-    const done = useSocial.getState().blob.onboardingDone;
-    if (!done) setGuide(true, 0);
+    if (!useSocial.getState().blob.onboardingDone) setGuide(true, 0);
   }, [setGuide]);
 
   useEffect(() => {

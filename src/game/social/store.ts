@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { cleanHandle } from "../score";
+import { loadSave } from "../save";
 import type { GameState } from "../types";
 import { CHALLENGE_DEFAULTS, decodeInvite, decodeResult, encodeInvite, encodeResult, makeId } from "./codes";
 import { makeDaily } from "./dailies";
@@ -298,8 +299,9 @@ export const useSocial = create<SocialStore>((set, get) => ({
 }));
 
 export function liveSnapshot(state: GameState | null, handle: string): LineSnapshot | null {
-  if (!state || state.phase === "title") return null;
-  return snapshotFromCareer(state, handle);
+  const s = state && state.phase !== "title" ? state : loadSave();
+  if (!s || s.phase === "title") return null;
+  return snapshotFromCareer(s, handle || s.company || s.captain);
 }
 
 export function bootSocial() {

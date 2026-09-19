@@ -25,7 +25,7 @@ export function LineCard({
         </p>
       </div>
       {snap.director ? <p className="mt-0.5 text-xs text-subtle">{t("end.director", { name: snap.director })}</p> : null}
-      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-sm sm:grid-cols-4">
+      <dl className={cn("mt-3 grid gap-x-3 gap-y-2 text-sm", compact ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-4")}>
         <Stat label={t("end.points")} value={qty(snap.points)} />
         <Stat label={t("end.ceu")} value={`${qty(snap.deliveredCeu)} CEU`} />
         <Stat label={t("hud.rep")} value={String(snap.reputation)} />

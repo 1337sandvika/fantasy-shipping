@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronsDown, ChevronsUp, Flag, Settings } from "lucide-react";
 import { maybeT, useT } from "@/i18n";
 import { MapCanvas } from "./MapCanvas";
@@ -31,7 +31,7 @@ export function Game() {
   const muted = useGame((s) => s.ui.muted);
   const tick = useGame((s) => s.tick);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     hydrateSaveFlag();
     void hydrateIap();
     bootSocial();
