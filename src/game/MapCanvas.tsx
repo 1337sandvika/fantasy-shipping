@@ -1,9 +1,10 @@
 import { useEffect, useRef } from "react";
 import { Minus, Plus } from "lucide-react";
 import { PORTS } from "./data/ports";
+import { shipTopArt } from "./data/art";
 import { EDGES, NODES } from "./data/seaways";
 import { EUROPE, LAND, VIEW_NM, frameBox, project } from "./geo";
-import { hopProgress, pointOnPath, seaRoute } from "./route";
+import { followWater, hopProgress, isNamedSeaPoint, pointOnPath, seaRoute } from "./route";
 import { activeShip, destSummary, shipLeg, shipWorldPos } from "./fleet";
 import { useGame } from "./store";
 import { countryName, t, useT } from "@/i18n";
@@ -16,7 +17,7 @@ function getShipImg(): HTMLImageElement | null {
   if (!shipImg) {
     shipImg = new Image();
     shipImg.crossOrigin = "anonymous";
-    shipImg.src = "/game/ship-top.png?v=3";
+    shipImg.src = shipTopArt();
   }
   return shipImg;
 }
@@ -104,13 +105,14 @@ function frameHop(
 }
 
 function canvasHeading(leg: Voyage, w: number, h: number): number {
-  const hop = hopProgress(leg.path, leg.travelled, leg.nm);
+  const path = followWater(leg.path);
+  const hop = hopProgress(path, leg.travelled, leg.nm);
   const A = project(hop.from.lon, hop.from.lat, w, h);
   const B = project(hop.to.lon, hop.to.lat, w, h);
   if (Math.abs(B.x - A.x) + Math.abs(B.y - A.y) < 0.5) {
-    const prog = leg.nm <= 0 ? 1 : leg.travelled / leg.nm;
-    const a = pointOnPath(leg.path, Math.max(0, prog - 0.02));
-    const b = pointOnPath(leg.path, Math.min(1, prog + 0.02));
+    const prog = leg.nm <= 0 ? 1 : Math.min(1, Math.max(0, leg.travelled / leg.nm));
+    const a = pointOnPath(path, Math.max(0, prog - 0.02));
+    const b = pointOnPath(path, Math.min(1, Math.max(prog, 0.02)));
     const P = project(a.lon, a.lat, w, h);
     const Q = project(b.lon, b.lat, w, h);
     return Math.atan2(Q.y - P.y, Q.x - P.x);
@@ -131,8 +133,11 @@ function drawHull(
   const aspect = img && img.naturalWidth ? img.naturalHeight / img.naturalWidth : 0.28;
   const L = Math.max(10, (active ? 12 : 9) + Math.min(zoom, 8) * 3.1);
   const Ht = L * aspect;
+  // Bow sits on the geographic point so the hull trails along the approach instead of overshooting onto land.
+  const cx = x - Math.cos(rot) * L * 0.42;
+  const cy = y - Math.sin(rot) * L * 0.42;
   ctx.save();
-  ctx.translate(x, y);
+  ctx.translate(cx, cy);
   ctx.rotate(rot);
   if (atSea) {
     ctx.fillStyle = active ? "rgba(232,93,4,0.32)" : "rgba(237,230,217,0.18)";
@@ -166,12 +171,12 @@ function drawHull(
     ctx.strokeStyle = "rgba(232,93,4,0.9)";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(x, y, L * 0.42 + 6, 0, Math.PI * 2);
+    ctx.arc(cx, cy, L * 0.42 + 6, 0, Math.PI * 2);
     ctx.stroke();
   }
 }
 
-type DrawnShip = { id: string; x: number; y: number; r: number };
+type DrawnShip = { id: string; x: number; y: number; r: number; heading: number };
 
 function layoutShips(fleet: Ship[], legs: Voyage[], w: number, h: number, cam: Cam): DrawnShip[] {
   const portIndex: Record<string, number> = {};
@@ -180,15 +185,22 @@ function layoutShips(fleet: Ship[], legs: Voyage[], w: number, h: number, cam: C
     const leg = legs.find((v) => v.shipId === sh.id) ?? null;
     const world = shipWorldPos(sh, leg);
     let { x, y } = vp(world.lon, world.lat, w, h, cam);
+    const rot = leg ? canvasHeading(leg, w, h) : (() => {
+      const p = PORTS.find((q) => q.id === sh.port);
+      if (!p) return -0.35;
+      const P = vp(p.lon, p.lat, w, h, cam);
+      return Math.atan2(P.y - y, P.x - x) || -0.35;
+    })();
     if (!sh.atSea) {
       const n = portIndex[sh.port] ?? 0;
       portIndex[sh.port] = n + 1;
-      const ang = -0.9 + n * 0.7;
-      const off = 10 + cam.z * 4;
-      x += Math.cos(ang) * off;
-      y += Math.sin(ang) * off;
+      const along = rot + Math.PI / 2;
+      const off = n * (5 + cam.z * 0.4);
+      const side = n % 2 === 0 ? 1 : -1;
+      x += Math.cos(along) * off * side;
+      y += Math.sin(along) * off * side;
     }
-    out.push({ id: sh.id, x, y, r: 16 + cam.z * 6 });
+    out.push({ id: sh.id, x, y, r: 16 + cam.z * 6, heading: rot });
   }
   return out;
 }
@@ -269,7 +281,14 @@ export function MapCanvas() {
 
       const world = ship ? shipWorldPos(ship, shipLeg(st, ship.id)) : null;
       const activeLeg = ship ? shipLeg(st, ship.id) : null;
-      const hop = activeLeg ? hopProgress(activeLeg.path, activeLeg.travelled, activeLeg.nm) : null;
+      const waterPath = activeLeg ? followWater(activeLeg.path) : null;
+      const hopPath = waterPath
+        ? waterPath.filter((p, i) => i === 0 || i === waterPath.length - 1 || isNamedSeaPoint(p))
+        : null;
+      const hop =
+        activeLeg && hopPath && hopPath.length
+          ? hopProgress(hopPath.length >= 2 ? hopPath : waterPath!, activeLeg.travelled, activeLeg.nm)
+          : null;
       let want = frameBox(EUROPE, w, h);
       if (ui.follow) {
         if (ship && world) {
@@ -413,16 +432,17 @@ export function MapCanvas() {
 
       for (const leg of st.legs) {
         const on = leg.shipId === st.activeId;
-        const hopNow = hopProgress(leg.path, leg.travelled, leg.nm);
+        const path = followWater(leg.path);
+        const hopNow = hopProgress(path, leg.travelled, leg.nm);
         ctx.strokeStyle = on ? "rgba(232,93,4,0.32)" : "rgba(237,230,217,0.2)";
         ctx.lineWidth = (on ? 2.4 : 1.6) * lw;
         ctx.setLineDash([5 * lw, 6 * lw]);
         ctx.beginPath();
-        drawPolyline(ctx, leg.path, w, h);
+        drawPolyline(ctx, path, w, h);
         ctx.stroke();
         ctx.setLineDash([]);
         if (hopNow.i > 0 || hopNow.e > 0) {
-          const done = leg.path.slice(0, hopNow.i + 1);
+          const done = path.slice(0, hopNow.i + 1);
           ctx.strokeStyle = on ? "rgba(232,93,4,0.95)" : "rgba(196,181,160,0.7)";
           ctx.lineWidth = (on ? 3.4 : 2) * lw;
           ctx.lineJoin = "round";
@@ -439,13 +459,15 @@ export function MapCanvas() {
         ctx.lineDashOffset = -hopNow.e * 22 * lw;
         ctx.beginPath();
         ctx.moveTo(A.x, A.y);
-        ctx.lineTo(A.x + (B.x - A.x) * Math.max(0.08, hopNow.e), A.y + (B.y - A.y) * Math.max(0.08, hopNow.e));
+        const ee = Math.min(1, Math.max(0, hopNow.e));
+        ctx.lineTo(A.x + (B.x - A.x) * ee, A.y + (B.y - A.y) * ee);
         ctx.stroke();
         ctx.setLineDash([]);
         ctx.lineDashOffset = 0;
         const pulse = 0.7 + 0.3 * Math.sin(performance.now() / 180);
-        for (let i = 0; i < leg.path.length; i++) {
-          const pt = project(leg.path[i]!.lon, leg.path[i]!.lat, w, h);
+        for (let i = 0; i < path.length; i++) {
+          if (!isNamedSeaPoint(path[i]!)) continue;
+          const pt = project(path[i]!.lon, path[i]!.lat, w, h);
           const passed = i < hopNow.i || (i === hopNow.i && hopNow.e > 0.02);
           const current = i === hopNow.i;
           const next = i === hopNow.i + 1;
@@ -535,7 +557,7 @@ export function MapCanvas() {
         const mark = marks.find((m) => m.id === sh.id);
         if (!mark) continue;
         const leg = shipLeg(st, sh.id);
-        const rot = leg ? canvasHeading(leg, w, h) : -0.35;
+        const rot = mark.heading;
         drawHull(ctx, mark.x, mark.y, rot, sh.id === st.activeId, sh.atSea, camNow.z);
         ctx.font = '11px "IBM Plex Sans", sans-serif';
         const name = `M/V ${sh.name}`;
@@ -556,7 +578,7 @@ export function MapCanvas() {
           ctx.fillText(destLine, mark.x + 14, mark.y + 3);
         }
         if (leg && sh.id === st.activeId) {
-          const hp = hopProgress(leg.path, leg.travelled, leg.nm);
+          const hp = hopProgress(followWater(leg.path), leg.travelled, leg.nm);
           const step = `${hp.i + 1}/${hp.n}`;
           ctx.fillStyle = "rgba(7,16,24,0.72)";
           ctx.font = '10px "IBM Plex Sans", sans-serif';
