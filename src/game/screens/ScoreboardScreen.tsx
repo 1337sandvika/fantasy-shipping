@@ -75,7 +75,7 @@ export function ScoreboardScreen() {
   const t = useT();
 
   return (
-    <div className="safe-pad harbour-grain relative flex min-h-dvh w-full min-w-0 max-w-full flex-col overflow-x-hidden bg-bg text-fg">
+    <div className="safe-pad harbour-grain compass-wash relative flex min-h-dvh w-full min-w-0 max-w-full flex-col overflow-x-hidden bg-bg text-fg">
       <header className="relative z-10 flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-8">
         <div className="flex items-center gap-3">
           <HouseMark size={40} />
