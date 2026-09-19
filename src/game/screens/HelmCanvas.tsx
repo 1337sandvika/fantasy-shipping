@@ -1,11 +1,11 @@
 // @ts-nocheck
 import { useEffect, useRef, useState } from "react";
 import { useT } from "@/i18n";
+import { shipTopArt } from "../data/art";
 import { actionsFromKeys, goalOf, helmWon, makeHarbor, spawnCraft, stepCraft } from "../helm";
 
 const GAME_KEYS = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"]);
-const SHIP_IMG = "https://palm-river-olive-field.grok.me/game/helm/ship-top.png";
-const BOAT_IMG = "https://palm-river-olive-field.grok.me/game/helm/workboat.png";
+const SHIP_IMG = shipTopArt();
 const SINK_IMG = "https://palm-river-olive-field.grok.me/game/helm/sink.jpg";
 const WATER = ["#2a7480", "#1f5f6a", "#2d6e78"];
 const LAND = ["#4a7a3e", "#3e6b48", "#5a6a42", "#4a5a3a"];
@@ -33,8 +33,11 @@ export function HelmCanvas({ helmKind, portId, ship, onWin, onCrash, onHire }) {
   crashRef.current = onCrash;
 
   useEffect(() => {
-    const a = new Image(); a.crossOrigin = "anonymous"; a.src = SHIP_IMG; a.onload = () => { imgs.current.ship = a; };
-    const b = new Image(); b.crossOrigin = "anonymous"; b.src = BOAT_IMG; b.onload = () => { imgs.current.boat = b; };
+    const a = new Image();
+    a.src = SHIP_IMG;
+    a.onload = () => {
+      imgs.current.ship = a;
+    };
   }, []);
 
   useEffect(() => {
@@ -260,38 +263,73 @@ function drawProp(ctx, p) {
   ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(p.x + 0.35, p.y + 0.35, p.w * 0.38, p.h * 0.32);
 }
 
-function drawShip(ctx, c, img, scale) {
-  ctx.save(); ctx.translate(c.x, c.y); ctx.rotate(c.heading);
-  const i = c.beam * scale, a = c.length * scale;
+function drawHullPoly(ctx, length, beam, kind) {
+  const hl = length / 2;
+  const hb = beam / 2;
+  ctx.beginPath();
+  ctx.moveTo(0, hl);
+  ctx.lineTo(hb * 0.42, hl * 0.72);
+  ctx.lineTo(hb, hl * 0.12);
+  ctx.lineTo(hb * 0.9, -hl * 0.62);
+  ctx.lineTo(hb * 0.55, -hl);
+  ctx.lineTo(-hb * 0.55, -hl);
+  ctx.lineTo(-hb * 0.9, -hl * 0.62);
+  ctx.lineTo(-hb, hl * 0.12);
+  ctx.lineTo(-hb * 0.42, hl * 0.72);
+  ctx.closePath();
+  ctx.fillStyle = kind === "ship" ? "#d8cbb6" : "#c4b8a4";
+  ctx.fill();
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 0.12;
+  ctx.stroke();
+  ctx.fillStyle = kind === "ship" ? "#24323e" : "#3a4650";
+  ctx.fillRect(-hb * 0.38, -hl * 0.92, hb * 0.76, hl * 0.34);
+  ctx.fillStyle = "#e85d04";
+  ctx.fillRect(-hb * 0.22, -hl * 0.22, hb * 0.44, hl * 0.42);
+  ctx.fillStyle = "rgba(160,210,220,0.45)";
+  ctx.fillRect(-hb * 0.28, -hl * 0.86, hb * 0.56, hl * 0.16);
+}
+
+function drawShip(ctx, c, img, scale, kind) {
+  ctx.save();
+  ctx.translate(c.x, c.y);
+  ctx.rotate(c.heading);
+  const beam = c.beam * scale;
+  const length = c.length * scale;
   if (Math.abs(c.speed) > 0.4) {
     ctx.fillStyle = "rgba(237,230,217,0.16)";
     for (let k = 1; k <= 4; k++) {
       ctx.beginPath();
-      ctx.ellipse(0, -a / 2 - k * 1.15 * Math.sign(c.speed || 1), 0.35 + k * 0.22, 0.55 + k * 0.35, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, -length / 2 - k * 1.15 * Math.sign(c.speed || 1), 0.35 + k * 0.22, 0.55 + k * 0.35, 0, 0, Math.PI * 2);
       ctx.fill();
     }
   }
   ctx.fillStyle = "rgba(0,0,0,0.28)";
   ctx.beginPath();
-  ctx.ellipse(0.35, 0.4, i * 0.48, a * 0.42, 0, 0, Math.PI * 2);
+  ctx.ellipse(0.35, 0.4, beam * 0.48, length * 0.42, 0, 0, Math.PI * 2);
   ctx.fill();
-  if (img && img.naturalWidth > 0) {
+  if (kind === "ship" && img && img.naturalWidth > 0) {
     ctx.save();
-    ctx.scale(1, -1);
-    ctx.drawImage(img, -i / 2, -a / 2, i, a);
+    // ship-top.png is bow-right (length along +x). Craft forward is local +y.
+    ctx.rotate(Math.PI / 2);
+    ctx.drawImage(img, -length / 2, -beam / 2, length, beam);
     ctx.restore();
   } else {
-    ctx.fillStyle = "#1a0c04"; ctx.fillRect(-i / 2, -a / 2, i, a);
-    ctx.fillStyle = "#d8cbb6"; ctx.fillRect(-i * 0.3, -a * 0.12, i * 0.6, a * 0.32);
-    ctx.fillStyle = "#e85d04"; ctx.beginPath(); ctx.moveTo(0, a / 2); ctx.lineTo(-i * 0.42, a / 2 - 1.5); ctx.lineTo(i * 0.42, a / 2 - 1.5); ctx.closePath(); ctx.fill();
+    drawHullPoly(ctx, length, beam, kind);
   }
   const glow = 0.55 + 0.45 * Math.max(0, Math.sin(c.x + c.y));
   ctx.fillStyle = `rgba(196,60,60,${0.55 + glow * 0.35})`;
-  ctx.beginPath(); ctx.arc(-i * 0.42, a * 0.1, Math.max(0.16, i * 0.055), 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath();
+  ctx.arc(-beam * 0.42, length * 0.1, Math.max(0.16, beam * 0.055), 0, Math.PI * 2);
+  ctx.fill();
   ctx.fillStyle = `rgba(60,138,76,${0.55 + glow * 0.35})`;
-  ctx.beginPath(); ctx.arc(i * 0.42, a * 0.1, Math.max(0.16, i * 0.055), 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath();
+  ctx.arc(beam * 0.42, length * 0.1, Math.max(0.16, beam * 0.055), 0, Math.PI * 2);
+  ctx.fill();
   ctx.fillStyle = "rgba(243,236,226,0.9)";
-  ctx.beginPath(); ctx.arc(0, a * 0.42, Math.max(0.14, i * 0.045), 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath();
+  ctx.arc(0, length * 0.42, Math.max(0.14, beam * 0.045), 0, Math.PI * 2);
+  ctx.fill();
   ctx.restore();
 }
 
@@ -380,8 +418,8 @@ function drawWorld(ctx, canvas, craft, harbor, kind, name, now, imgs) {
   const pulse = 0.55 + 0.45 * Math.sin(now * 3.2);
   ctx.fillStyle = "rgba(232,93,4," + (0.16 + pulse * 0.16) + ")"; ctx.fillRect(goal.x - gw, goal.y - 5, gw * 2, 12);
   ctx.strokeStyle = "rgba(232,93,4," + (0.7 + pulse * 0.3) + ")"; ctx.lineWidth = 0.45; ctx.strokeRect(goal.x - gw, goal.y - 5, gw * 2, 12);
-  for (const n of harbor.traffic || []) drawShip(ctx, n, imgs.boat, 1);
-  if (craft) drawShip(ctx, craft, imgs.ship, 0.92);
+  for (const n of harbor.traffic || []) drawShip(ctx, n, null, 1, "boat");
+  if (craft) drawShip(ctx, craft, imgs.ship, 0.92, "ship");
   ctx.restore();
   ctx.fillStyle = "rgba(237,230,217,0.55)";
   ctx.font = Math.round(canvas.height * 0.018) + 'px "IBM Plex Sans", sans-serif';

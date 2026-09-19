@@ -36,3 +36,8 @@ export function eventArt(id: string): string | null {
 export function hullArt(id: string): string {
   return `/game/hulls/${id}.jpg?v=4`;
 }
+
+/** Top-down RoRo used on the atlas and in the harbor helm view (bow to the right). */
+export function shipTopArt(): string {
+  return "/game/ship-top.png?v=3";
+}
