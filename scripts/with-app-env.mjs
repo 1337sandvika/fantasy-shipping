@@ -28,6 +28,15 @@ import { fileURLToPath } from "node:url";
 export const APP_ENV_REL_PATH = ".grok/app-env.json";
 
 const VITE_PREFIX = "VITE_";
+const WINDOWS_COMMAND_SHIMS = new Set(["vite", "npm", "npx"]);
+
+/** Resolve package-provided command shims when spawning on Windows. */
+export function resolveCommand(command) {
+  if (process.platform !== "win32" || !WINDOWS_COMMAND_SHIMS.has(command)) {
+    return command;
+  }
+  return `${command}.cmd`;
+}
 
 /**
  * Parse an app-env document, keeping only `VITE_`-prefixed string entries.
@@ -111,7 +120,11 @@ function main(argv) {
     process.exit(2);
   }
   const env = mergeAppEnv(readAppEnv(projectRoot()), process.env);
-  const child = spawn(command, args, { stdio: "inherit", env });
+  const child = spawn(resolveCommand(command), args, {
+    stdio: "inherit",
+    env,
+    shell: process.platform === "win32" && WINDOWS_COMMAND_SHIMS.has(command),
+  });
   // The dev server is long-running and is stopped by signalling this wrapper.
   for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
     process.on(signal, () => child.kill(signal));
