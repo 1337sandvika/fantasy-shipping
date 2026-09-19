@@ -1,6 +1,6 @@
 import { PORTS, getPort, portName } from "./data/ports";
 import { HULLS, UPGRADES, hullById, type Hull } from "./data/ships";
-import { pointOnPath, pointOnPathStepped, seaRoute } from "./route";
+import { followWater, pointOnPath, pointOnPathStepped, quayPoint, seaRoute } from "./route";
 import type { GameState, Lot, MarketOffer, Ship, UpgradeId, Voyage } from "./types";
 
 export function activeShip(s: GameState): Ship | null {
@@ -394,13 +394,20 @@ export type ShipPos = { lon: number; lat: number; heading: number };
 
 export function shipWorldPos(ship: Ship, leg: Voyage | null): ShipPos {
   if (leg && leg.path.length) {
-    const pos = pointOnPathStepped(leg.path, leg.travelled, leg.nm);
-    const prog = leg.nm <= 0 ? 1 : leg.travelled / leg.nm;
-    const a = pointOnPath(leg.path, Math.max(0, prog - 0.02));
-    const b = pointOnPath(leg.path, Math.min(1, prog + 0.02));
+    const path = followWater(leg.path);
+    const pos = pointOnPathStepped(path, leg.travelled, leg.nm);
+    const prog = leg.nm <= 0 ? 1 : Math.min(1, Math.max(0, leg.travelled / leg.nm));
+    const a = pointOnPath(path, Math.max(0, prog - 0.02));
+    const b = pointOnPath(path, Math.min(1, Math.max(prog, 0.02)));
     const heading = Math.atan2(b.lat - a.lat, b.lon - a.lon);
+    if (prog >= 1) {
+      const dest = path[path.length - 1]!;
+      return { lon: dest.lon, lat: dest.lat, heading };
+    }
     return { lon: pos.lon, lat: pos.lat, heading };
   }
+  const q = quayPoint(ship.port);
   const p = getPort(ship.port);
-  return { lon: p.lon, lat: p.lat, heading: -0.4 };
+  const heading = Math.atan2(p.lat - q.lat, p.lon - q.lon);
+  return { lon: q.lon, lat: q.lat, heading };
 }
