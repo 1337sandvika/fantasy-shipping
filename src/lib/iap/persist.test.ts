@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { TRIAL_MS, TRIAL_START_KEY, UNLOCK_CACHE_KEY } from "./product.ts";
+import { TRIAL_MS, UNLOCK_CACHE_KEY } from "./product.ts";
 import { deriveAccess } from "./access.ts";
 import {
   ensureTrialStart,
