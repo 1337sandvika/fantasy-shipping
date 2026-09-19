@@ -83,7 +83,7 @@ export function PortPanel() {
           const leg = activeLeg(s);
           return (
             <>
-              <p className="text-[10px] font-medium tracking-[0.2em] text-accent">{ship ? `M/V ${ship.name}` : t("dock.call")}</p>
+              <p className="kicker">{ship ? `M/V ${ship.name}` : t("dock.call")}</p>
               <h2 className="font-display text-lg sm:text-xl">
                 {leg ? (
                   <>
@@ -115,7 +115,7 @@ export function PortPanel() {
             key={id}
             type="button"
             onClick={() => setTab(id)}
-            className={cn("min-h-11 min-w-0 flex-1 rounded-md px-1 text-xs font-medium", s.tab === id ? "bg-surface text-fg" : "text-muted")}
+            className={cn("min-h-11 min-w-0 flex-1 rounded-md px-1 text-xs font-medium", s.tab === id ? "bg-surface text-fg shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-brass)_28%,transparent)]" : "text-muted hover:text-fg")}
           >
             {label}
           </button>

@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, Navigate, useSearch } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
+import { HouseMark } from "@/components/ui/mark";
 import { GROK_PROVIDERS, authClient, authEnabled, captureNativeSessionToken, signIn } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { useT } from "@/i18n";
@@ -76,87 +77,86 @@ export default function LoginScreen() {
   }
 
   return (
-    <div className="safe-pad relative flex min-h-dvh w-full min-w-0 max-w-full flex-col overflow-x-hidden bg-bg text-fg">
+    <div className="safe-pad harbour-grain relative flex min-h-dvh w-full min-w-0 max-w-full flex-col overflow-x-hidden bg-bg text-fg">
       <img src="/game/title-hero.jpg?v=3" alt="" className="absolute inset-0 h-full w-full object-cover" />
-      <div className="absolute inset-0 bg-linear-to-t from-bg via-bg/80 to-bg/40" />
+      <div className="harbour-hero absolute inset-0" />
       <div className="relative z-10 flex justify-end px-4 pt-4">
         <LanguageSwitch compact />
       </div>
-      <div className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col justify-end px-5 pb-10 pt-8 sm:justify-center">
-        <p className="text-xs font-medium tracking-[0.28em] text-accent">{t("brand.account")}</p>
-        <h1 className="mt-2 font-display text-4xl">{mode === "up" ? t("login.create") : t("login.title")}</h1>
-        <p className="mt-3 text-sm text-muted">{startMode === "up" ? t("login.blurbSave") : t("login.blurb")}</p>
+      <div className="screen-in relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col justify-end px-5 pb-10 pt-8 sm:justify-center">
+        <div className="mb-4 flex items-center gap-3">
+          <HouseMark size={40} />
+          <p className="kicker">{t("brand.account")}</p>
+        </div>
+        <h1 className="font-display text-4xl leading-tight">{mode === "up" ? t("login.create") : t("login.title")}</h1>
+        <p className="mt-3 text-sm leading-relaxed text-muted">{startMode === "up" ? t("login.blurbSave") : t("login.blurb")}</p>
 
-        {!authEnabled ? (
-          <p className="mt-6 text-sm text-muted">{t("login.disabled")}</p>
-        ) : (
-          <>
-            {social ? (
-              <div className="mt-6 flex flex-col gap-2">
-                {GROK_PROVIDERS.map((p) => (
-                  <Button key={p.providerId} variant="secondary" className="w-full" disabled={busy} onClick={() => oauth(p.providerId)}>
-                    {t("login.continueWith", { name: p.label })}
-                  </Button>
-                ))}
-              </div>
-            ) : (
-              <div className="mt-6" />
-            )}
-            <p className="mt-6 text-center text-xs uppercase tracking-wider text-subtle">{t("login.emailSection")}</p>
-            <form className="mt-3 space-y-3" onSubmit={onEmail}>
-              {mode === "up" ? (
+        <div className="panel mt-6 p-4 sm:p-5">
+          {!authEnabled ? (
+            <p className="text-sm text-muted">{t("login.disabled")}</p>
+          ) : (
+            <>
+              {social ? (
+                <div className="flex flex-col gap-2">
+                  {GROK_PROVIDERS.map((p) => (
+                    <Button key={p.providerId} variant="secondary" className="w-full" disabled={busy} onClick={() => oauth(p.providerId)}>
+                      {t("login.continueWith", { name: p.label })}
+                    </Button>
+                  ))}
+                </div>
+              ) : null}
+              <p className="mt-5 text-center text-[11px] uppercase tracking-[0.18em] text-brass">{t("login.emailSection")}</p>
+              <form className="mt-3 space-y-3" onSubmit={onEmail}>
+                {mode === "up" ? (
+                  <label className="block text-xs font-medium text-muted">
+                    {t("login.name")}
+                    <input
+                      value={name}
+                      onChange={(ev) => setName(ev.target.value)}
+                      maxLength={28}
+                      className="field mt-1"
+                    />
+                  </label>
+                ) : null}
                 <label className="block text-xs font-medium text-muted">
-                  {t("login.name")}
+                  {t("login.email")}
                   <input
-                    value={name}
-                    onChange={(ev) => setName(ev.target.value)}
-                    maxLength={28}
-                    className="mt-1 min-h-11 w-full rounded-md border border-border bg-surface px-3 text-sm text-fg outline-none focus:outline-2 focus:outline-offset-2 focus:outline-accent"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    value={email}
+                    onChange={(ev) => setEmail(ev.target.value)}
+                    className="field mt-1"
                   />
                 </label>
-              ) : null}
-              <label className="block text-xs font-medium text-muted">
-                {t("login.email")}
-                <input
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(ev) => setEmail(ev.target.value)}
-                  className="mt-1 min-h-11 w-full rounded-md border border-border bg-surface px-3 text-sm text-fg outline-none focus:outline-2 focus:outline-offset-2 focus:outline-accent"
-                />
-              </label>
-              <label className="block text-xs font-medium text-muted">
-                {t("login.password")}
-                <input
-                  type="password"
-                  autoComplete={mode === "up" ? "new-password" : "current-password"}
-                  required
-                  minLength={8}
-                  value={password}
-                  onChange={(ev) => setPassword(ev.target.value)}
-                  className="mt-1 min-h-11 w-full rounded-md border border-border bg-surface px-3 text-sm text-fg outline-none focus:outline-2 focus:outline-offset-2 focus:outline-accent"
-                />
-              </label>
-              {error ? <p className="text-sm text-danger">{error}</p> : null}
-              <Button className="w-full" disabled={busy}>
-                {busy ? t("login.wait") : mode === "up" ? t("login.create") : t("login.submit")}
-              </Button>
-            </form>
-            <button
-              type="button"
-              className="mt-3 text-xs text-muted underline-offset-4 hover:text-fg hover:underline"
-              onClick={() => setMode(mode === "up" ? "in" : "up")}
-            >
-              {mode === "up" ? t("login.hasAccount") : t("login.newCaptain")}
-            </button>
-          </>
-        )}
+                <label className="block text-xs font-medium text-muted">
+                  {t("login.password")}
+                  <input
+                    type="password"
+                    autoComplete={mode === "up" ? "new-password" : "current-password"}
+                    required
+                    minLength={8}
+                    value={password}
+                    onChange={(ev) => setPassword(ev.target.value)}
+                    className="field mt-1"
+                  />
+                </label>
+                {error ? <p className="text-sm text-danger">{error}</p> : null}
+                <Button className="w-full" disabled={busy}>
+                  {busy ? t("login.wait") : mode === "up" ? t("login.create") : t("login.submit")}
+                </Button>
+              </form>
+              <button type="button" className="link-quiet mt-3" onClick={() => setMode(mode === "up" ? "in" : "up")}>
+                {mode === "up" ? t("login.hasAccount") : t("login.newCaptain")}
+              </button>
+            </>
+          )}
+        </div>
         <div className="mt-6 flex flex-wrap gap-4">
-          <Link to="/" className="text-xs text-muted underline-offset-4 hover:text-fg hover:underline">
+          <Link to="/" className="link-quiet">
             {t("login.guest")}
           </Link>
-          <Link to="/privacy" className="text-xs text-muted underline-offset-4 hover:text-fg hover:underline">
+          <Link to="/privacy" className="link-quiet">
             {t("privacy.title")}
           </Link>
         </div>

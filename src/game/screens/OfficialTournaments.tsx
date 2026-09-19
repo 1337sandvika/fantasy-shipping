@@ -119,8 +119,8 @@ export function OfficialList({
     <div className="space-y-3">
       {!compact ? (
         <div>
-          <p className="text-xs font-medium tracking-[0.22em] text-accent">{t("off.kicker")}</p>
-          <p className="mt-1 text-sm text-muted">{t("off.blurb")}</p>
+          <p className="kicker">{t("off.kicker")}</p>
+          <p className="mt-2 text-sm leading-relaxed text-muted">{t("off.blurb")}</p>
         </div>
       ) : null}
       {err ? <p className="text-sm text-danger">{err}</p> : null}
@@ -138,7 +138,8 @@ export function OfficialList({
               <article
                 className={cn(
                   "rounded-xl border bg-bg-elevated p-4",
-                  expanded ? "border-accent" : "border-border",
+                  expanded ? "border-brass/50" : "border-border",
+                  `rail-${c.slug}`,
                 )}
               >
                 <button
@@ -146,13 +147,13 @@ export function OfficialList({
                   onClick={() => setOpen(open === c.slug ? null : c.slug)}
                   className="flex w-full items-start gap-3 text-left"
                 >
-                  <span className="mt-0.5 grid size-11 shrink-0 place-items-center rounded-md bg-surface text-accent">
-                    <Icon className="size-5" aria-hidden />
+                  <span className="mt-0.5 grid size-11 shrink-0 place-items-center rounded-md bg-surface text-brass">
+                    <Icon className="size-5" strokeWidth={1.75} aria-hidden />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                       <span className="font-display text-lg">{t(nameKey)}</span>
-                      <span className="text-xs tracking-wider text-accent">
+                      <span className="text-xs tracking-wider text-brass">
                         {c.live ? t("comp.live") : t("comp.ended")} · {clockLabel(c.endsAt, now, t)}
                       </span>
                     </span>
@@ -171,13 +172,10 @@ export function OfficialList({
                       r.points <= 0 ? null : (
                         <li
                           key={`${c.slug}-${r.rank}-${r.handle}`}
-                          className={cn(
-                            "flex items-baseline justify-between gap-3 rounded-md border px-3 py-1.5",
-                            r.mine ? "border-accent bg-surface" : "border-border bg-bg",
-                          )}
+                          className={cn("board-row py-1.5", r.mine && "board-row-mine")}
                         >
                           <span className="flex min-w-0 items-baseline gap-2">
-                            <span className="w-5 font-mono text-xs tabular-nums text-subtle">{r.rank}</span>
+                            <span className={cn("w-5 font-mono text-xs tabular-nums", r.rank <= 3 ? `rank-${r.rank}` : "text-subtle")}>{r.rank}</span>
                             <span className="truncate text-sm">
                               {r.handle}
                               {r.mine ? <span className="ml-2 text-xs text-accent">{t("board.you")}</span> : null}
@@ -195,7 +193,7 @@ export function OfficialList({
                 <div className="mt-3 flex flex-wrap gap-2">
                   {c.joined ? (
                     <>
-                      <span className="inline-flex min-h-11 items-center rounded-md border border-accent/40 bg-accent/10 px-3 text-xs font-medium text-accent">
+                      <span className="inline-flex min-h-11 items-center rounded-md border border-brass/40 bg-brass/10 px-3 text-xs font-medium text-brass">
                         {t("off.joined")}
                       </span>
                       <Button size="sm" variant="ghost" disabled={busy === c.slug} onClick={() => void onLeave(c.id, c.slug)}>
@@ -210,7 +208,7 @@ export function OfficialList({
                     <Link
                       to="/login"
                       search={{ next: "/scoreboard" }}
-                      className="inline-flex min-h-11 items-center rounded-md bg-accent px-4 text-sm font-medium text-accent-fg"
+                      className="inline-flex min-h-11 items-center rounded-md bg-accent px-4 text-sm font-medium text-accent-fg shadow-[inset_0_1px_0_rgb(255_255_255/0.2)]"
                     >
                       {t("off.signIn")}
                     </Link>
@@ -218,7 +216,7 @@ export function OfficialList({
                   {compact ? (
                     <Link
                       to="/scoreboard"
-                      className="inline-flex min-h-11 items-center rounded-md border border-border px-3 text-xs font-medium text-muted hover:text-fg"
+                      className="inline-flex min-h-11 items-center rounded-md border border-border px-3 text-xs font-medium text-muted hover:border-brass/40 hover:text-fg"
                     >
                       {t("off.open")}
                     </Link>
@@ -268,8 +266,8 @@ export function TourneyTeaser() {
   }
   const name = t(`off.${card.slug}` as MsgKey);
   return (
-    <Link to="/scoreboard" className="inline-flex min-h-11 items-center gap-2 text-xs text-accent underline-offset-4 hover:underline">
-      <Trophy className="size-3.5" aria-hidden />
+    <Link to="/scoreboard" className="inline-flex min-h-11 items-center gap-2 text-xs text-brass underline-offset-4 hover:underline">
+      <Trophy className="size-3.5" strokeWidth={1.75} aria-hidden />
       {t("title.tourney", { name, clock: clockLabel(card.endsAt, now, t) })}
     </Link>
   );

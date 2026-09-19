@@ -14,7 +14,7 @@ export async function bootNativeChrome(): Promise<void> {
     ]);
     await StatusBar.setStyle({ style: Style.Dark });
     try {
-      await StatusBar.setBackgroundColor({ color: "#071018" });
+      await StatusBar.setBackgroundColor({ color: "#06141c" });
     } catch {
       /* iOS ignores background color on some versions */
     }

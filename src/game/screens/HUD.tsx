@@ -12,64 +12,64 @@ export function HUD() {
   const t = useT();
   const etsEst = Math.round(s.etsAcc * 80);
   return (
-    <header className="flex flex-wrap items-center gap-x-3 gap-y-0.5 border-b border-border bg-bg-elevated/95 px-3 py-1.5 text-xs sm:gap-x-4 sm:py-2">
-      <p className="max-w-44 truncate font-display text-sm tracking-wide text-accent" title={s.company || s.captain || t("brand.short")}>
+    <header className="hud-bar">
+      <p className="max-w-44 truncate font-display text-[0.95rem] tracking-wide text-brass" title={s.company || s.captain || t("brand.short")}>
         {s.company || s.captain || t("brand.short")}
       </p>
-      <p className="tabular-nums text-muted">{formatDate(s.day)}</p>
-      <p className="tabular-nums text-muted">
+      <p className="hud-stat tabular-nums text-muted">{formatDate(s.day)}</p>
+      <p className="hud-stat tabular-nums text-muted">
         {t("hud.cash")}{" "}
         <span className={s.cash < 0 ? "text-danger" : "text-fg"}>{money(s.cash)}</span>
       </p>
       {(s.debt ?? 0) > 0 ? (
-        <p className="tabular-nums text-warn">
+        <p className="hud-stat tabular-nums text-warn">
           {t("hud.debt")} <span>{money(s.debt)}</span>
         </p>
       ) : null}
-      <p className="hidden tabular-nums text-muted sm:block">
+      <p className="hud-stat hidden tabular-nums text-muted sm:inline-flex">
         {t("hud.rep")} <span className="text-fg">{s.reputation}</span>
       </p>
-      <p className="hidden tabular-nums text-muted sm:block">
+      <p className="hud-stat hidden tabular-nums text-muted sm:inline-flex">
         {t("hud.co2")} <span className="text-fg">{qty(s.co2t)} t</span>
       </p>
       {etsEst > 0 ? (
-        <p className="hidden tabular-nums text-muted sm:block">
+        <p className="hud-stat hidden tabular-nums text-muted sm:inline-flex">
           {t("hud.ets")} <span className={etsEst > 8000 ? "text-warn" : "text-fg"}>{money(etsEst)}</span>
         </p>
       ) : null}
       {ship ? (
-        <p className="hidden tabular-nums text-muted sm:block">
+        <p className="hud-stat hidden tabular-nums text-muted sm:inline-flex">
           {t("hud.burn")} <span className="text-fg">{qty3(burnPerNm(ship))}</span>
           <span className="text-subtle"> {t("hud.perNm")}</span>
         </p>
       ) : null}
       {ship ? (
-        <p className="hidden tabular-nums text-muted sm:block">
+        <p className="hud-stat hidden tabular-nums text-muted sm:inline-flex">
           {t("hud.co2nm")} <span className="text-fg">{qty3(co2PerNm(ship))}</span>
           <span className="text-subtle"> {t("hud.perNm")}</span>
         </p>
       ) : null}
       {s.heat >= 1 || s.probe || (ship?.hold.some((l) => l.grey) ?? false) ? (
-        <div title={t("hud.heatHint", { n: s.heat })}>
+        <div className="hud-stat" title={t("hud.heatHint", { n: s.heat })}>
           <HeatMeter heat={s.heat} probe={s.probe} trial={Boolean(s.trial)} compact />
         </div>
       ) : null}
       {(s.onTimeStreak ?? 0) >= 2 ? (
-        <p className="hidden tabular-nums text-accent sm:block">{t("hud.streak", { n: s.onTimeStreak })}</p>
+        <p className="hud-stat hidden tabular-nums text-accent sm:inline-flex">{t("hud.streak", { n: s.onTimeStreak })}</p>
       ) : null}
       {(s.preferred ?? []).length ? (
-        <p className="hidden max-w-40 truncate tabular-nums text-accent sm:block" title={(s.preferred ?? []).join(", ")}>
+        <p className="hud-stat hidden max-w-40 truncate tabular-nums text-accent sm:inline-flex" title={(s.preferred ?? []).join(", ")}>
           {t("hud.preferred", { n: s.preferred.length })}
         </p>
       ) : null}
       {s.fleet.length > 1 ? (
-        <p className="hidden tabular-nums text-muted sm:block">
+        <p className="hud-stat hidden tabular-nums text-muted sm:inline-flex">
           {t("hud.fleet")} <span className="text-fg">{s.fleet.length}</span>
         </p>
       ) : null}
-      {!ship ? <p className="text-warn">{t("hud.noShip")}</p> : null}
+      {!ship ? <p className="hud-stat text-warn">{t("hud.noShip")}</p> : null}
       {ship ? (
-        <p className="hidden tabular-nums text-muted sm:block">
+        <p className="hud-stat hidden tabular-nums text-muted sm:inline-flex">
           {t("hud.cargo")}{" "}
           <span className="text-fg">
             {qty(ship.ceu - remainingCeu(ship))}/{qty(ship.ceu)}
@@ -79,12 +79,12 @@ export function HUD() {
       ) : null}
       {ship
         ? destSummary(ship.hold).map((d) => (
-            <p key={d.dest} className="hidden tabular-nums text-accent sm:block">
+            <p key={d.dest} className="hud-stat hidden tabular-nums text-accent sm:inline-flex">
               {t("hold.for", { port: portName(d.dest) })} {qty(d.ceu)} CEU
             </p>
           ))
         : null}
-      {leg ? <p className="text-accent">{t("hud.bound", { port: portName(leg.to) })}</p> : null}
+      {leg ? <p className="hud-stat text-accent">{t("hud.bound", { port: portName(leg.to) })}</p> : null}
     </header>
   );
 }

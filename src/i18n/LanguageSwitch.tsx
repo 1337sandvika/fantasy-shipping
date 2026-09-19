@@ -14,7 +14,7 @@ export function LanguageSwitch({ compact }: { compact?: boolean }) {
           const v = e.target.value;
           if (isLocale(v)) setLocale(v);
         }}
-        className="min-h-11 rounded-md border border-border bg-bg-elevated/90 px-2 text-xs font-medium text-fg outline-none focus:outline-2 focus:outline-offset-2 focus:outline-accent"
+        className="field min-h-11 w-auto px-2 text-xs font-medium"
       >
         {LOCALES.map((l) => (
           <option key={l.id} value={l.id} lang={l.html}>

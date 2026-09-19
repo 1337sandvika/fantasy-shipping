@@ -21,7 +21,7 @@ export function HeatMeter({
   return (
     <div className={cn("min-w-0", compact ? "flex items-center gap-2" : "space-y-1")}>
       <div
-        className={cn("relative overflow-hidden rounded-sm border border-border bg-surface", compact ? "h-2 w-24" : "h-2.5 w-full")}
+        className={cn("relative overflow-hidden rounded-sm border border-border bg-surface shadow-[inset_0_1px_0_rgb(255_255_255/0.04)]", compact ? "h-2 w-24" : "h-2.5 w-full")}
         role="meter"
         aria-valuenow={Math.round(n)}
         aria-valuemin={0}

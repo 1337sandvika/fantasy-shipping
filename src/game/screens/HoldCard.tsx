@@ -33,7 +33,7 @@ export function HoldCard({ variant }: { variant: "bar" | "panel" }) {
       <div className={cn("flex flex-wrap items-end gap-x-6 gap-y-2", variant === "panel" && "flex-col items-stretch gap-y-2")}>
         <div className="min-w-[12rem] flex-1">
           {leg ? (
-            <p className="text-[10px] font-medium uppercase tracking-wider text-accent">
+            <p className="kicker text-[10px]">
               {t("voyage.underway")} · {portName(leg.to)} · {qty(Math.round(Math.max(0, leg.nm - leg.travelled)))} nm
             </p>
           ) : (

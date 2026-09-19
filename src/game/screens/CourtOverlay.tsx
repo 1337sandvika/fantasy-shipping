@@ -7,13 +7,13 @@ import { greyOnBoardCeu, lawyerCost, lawyerRadius, verdictEffects, type LawyerTi
 import { blip, chime, foghorn } from "../audio";
 import { useGame } from "../store";
 
-const BG = "#071018";
+const BG = "#06141c";
 const WIRE = "#c9c0ae";
-const ACCENT = "#e85d04";
-const FG = "#ede6d9";
-const OK = "#7d9b76";
+const ACCENT = "#d66a2c";
+const FG = "#f3ead8";
+const OK = "#7ea887";
 const DANGER = "#c45c4a";
-const WARN = "#c4a574";
+const WARN = "#d4b06a";
 
 export function CourtOverlay() {
   const trial = useGame((g) => g.state.trial);
@@ -229,7 +229,7 @@ export function CourtOverlay() {
           />
         </div>
         <div className="flex w-full shrink-0 flex-col justify-center gap-3 overflow-y-auto border-t border-border bg-bg-elevated p-4 sm:w-96 sm:border-l sm:border-t-0 sm:p-5">
-          <p className="text-xs tracking-[0.2em] text-accent">{maybeT("court.kicker")}</p>
+          <p className="kicker">{maybeT("court.kicker")}</p>
           <h2 className="font-display text-2xl">{maybeT("court.title", { line: s.company || s.captain })}</h2>
           <p className="text-xs tabular-nums text-muted">{maybeT("court.stake", { n: money(stake) })}</p>
           {phase === "counsel" ? (
