@@ -110,9 +110,9 @@ export function HelmOverlay() {
                       ceu: qty(wreckCeu),
                     })}
                   </p>
-                  {lost && (tcWreck || salvage > 0) ? (
+                  {lost && tcWreck ? (
                     <p className="mt-2 text-xs italic text-subtle">
-                      {maybeT(tcWreck ? (s.cash < 0 ? "helm.lostTcBrokeBody" : "helm.lostTcBody") : "helm.lostBody", {
+                      {maybeT(s.cash < 0 ? "helm.lostTcBrokeBody" : "helm.lostTcBody", {
                         name: helm.shipName ?? ship?.name ?? helm.shipId,
                         port: portName(helm.port),
                         n: money(wreckBill || salvage),
