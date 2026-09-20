@@ -42,6 +42,14 @@ export function replacementValue(ship: Pick<Ship, "hullId" | "year" | "condition
   return Math.round(base * (0.55 + 0.45 * cond) * Math.max(0.35, 1 - age * 0.015));
 }
 
+/** Cheapest hull the yard or second-hand list will actually sell. */
+export function cheapestBuyPrice(s: Pick<GameState, "market">): number {
+  const yard = HULLS.reduce((m, h) => Math.min(m, h.price), Number.POSITIVE_INFINITY);
+  const market = (s.market ?? []).reduce((m, o) => Math.min(m, o.price), Number.POSITIVE_INFINITY);
+  const n = Math.min(yard, market);
+  return Number.isFinite(n) ? n : (HULLS[0]?.price ?? 2_150_000);
+}
+
 export function hullValue(ship: Ship): number {
   if (ship.charter === "in") return 0;
   return replacementValue(ship);

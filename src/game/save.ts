@@ -135,6 +135,7 @@ export function hydrate(state: GameState): GameState {
             hullBill: Number(state.helm.hullBill) || 0,
             tcWreck: Boolean(state.helm.tcWreck),
             shipName: state.helm.shipName ? String(state.helm.shipName) : undefined,
+            collision: Boolean(state.helm.collision),
           }
         : null,
   };

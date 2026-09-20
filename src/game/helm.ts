@@ -23,6 +23,8 @@ export type Harbor = {
 };
 export type HelmActions = { throttle: number; steer: number };
 export type HelmHit = false | "scrape" | "sink";
+export type HelmCrashCause = "traffic" | "wall";
+export type HelmStep = { craft: HelmCraft; harbor: Harbor; hit: HelmHit; cause?: HelmCrashCause };
 const KINDS: HarborKind[] = ["straight", "dogleg", "narrow", "lock", "piers", "island", "offset", "basin"];
 export function hash(s: string): number {
   let h = 2166136261;
@@ -214,7 +216,7 @@ export function stepTraffic(h: Harbor, dt: number): Harbor {
   });
   return { ...h, traffic };
 }
-export function stepCraft(c: HelmCraft, a: HelmActions, harbor: Harbor, dt: number): { craft: HelmCraft; harbor: Harbor; hit: HelmHit } {
+export function stepCraft(c: HelmCraft, a: HelmActions, harbor: Harbor, dt: number): HelmStep {
   const nextH = stepTraffic(harbor, dt);
   const throttle = Math.max(-1, Math.min(1, a.throttle));
   const steer = Math.max(-1, Math.min(1, a.steer));
@@ -231,7 +233,7 @@ export function stepCraft(c: HelmCraft, a: HelmActions, harbor: Harbor, dt: numb
     const bounced = { ...c, speed: -c.speed * 0.22, x: c.x - f.x * 0.4, y: c.y - f.y * 0.4 };
     const v = Math.abs(c.speed);
     const hit: HelmHit = v > 3.8 ? "sink" : v > 2.6 ? "scrape" : false;
-    return { craft: colliding(bounced, nextH) ? { ...c, speed: 0 } : bounced, harbor: nextH, hit };
+    return { craft: colliding(bounced, nextH) ? { ...c, speed: 0 } : bounced, harbor: nextH, hit, cause: "traffic" };
   }
   const onlyX = { ...next, y: c.y };
   const onlyY = { ...next, x: c.x };
@@ -255,7 +257,7 @@ export function stepCraft(c: HelmCraft, a: HelmActions, harbor: Harbor, dt: numb
   const hit: HelmHit = impact > 4.4 ? "sink" : impact > 3.15 ? "scrape" : false;
   if (!hit) return { craft: { ...slid, speed: slid.speed * (okX && okY ? 1 : 0.88) }, harbor: nextH, hit: false };
   const bounced = { ...c, speed: -c.speed * 0.18, x: c.x - f.x * 0.35, y: c.y - f.y * 0.35 };
-  return { craft: hitsWall(bounced, nextH) ? { ...c, heading, speed: 0 } : bounced, harbor: nextH, hit };
+  return { craft: hitsWall(bounced, nextH) ? { ...c, heading, speed: 0 } : bounced, harbor: nextH, hit, cause: "wall" };
 }
 export function actionsFromKeys(keys: Set<string>, probeSteer: number | null): HelmActions {
   let throttle = 0, steer = 0;

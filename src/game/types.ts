@@ -143,6 +143,7 @@ export type HelmJob = {
   hullBill?: number;
   tcWreck?: boolean;
   shipName?: string;
+  collision?: boolean;
 };
 
 export type TrialJob = {
