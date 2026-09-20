@@ -78,7 +78,7 @@ export function EndScreen() {
   }, [user, isPending, t]);
 
   return (
-    <div className="safe-pad relative flex min-h-dvh w-full min-w-0 max-w-full flex-col overflow-x-hidden bg-bg text-fg">
+    <div className="safe-pad harbour-grain relative flex min-h-dvh w-full min-w-0 max-w-full flex-col overflow-x-hidden bg-bg text-fg">
       {hard ? (
         <div className="relative isolate overflow-hidden border-b border-danger/40">
           <img
@@ -91,7 +91,7 @@ export function EndScreen() {
             <div className="mb-6 flex justify-end">
               <AuthBar showTable={false} />
             </div>
-            <p className="text-xs tracking-[0.25em] text-danger">{t("end.kicker.over")}</p>
+            <p className="kicker text-danger">{t("end.kicker.over")}</p>
             <div className="mt-4 flex flex-wrap items-end gap-6">
               <h1 className="max-w-xl font-display text-4xl sm:text-6xl">{t("end.broke.title")}</h1>
               <p
@@ -117,12 +117,12 @@ export function EndScreen() {
           <div className="mb-6 flex justify-end">
             <AuthBar showTable={false} />
           </div>
-          <p className="text-xs tracking-[0.25em] text-accent">{t("end.kicker.checkpoint")}</p>
+          <p className="kicker">{t("end.kicker.checkpoint")}</p>
           <h1 className="mt-2 font-display text-4xl">{t(`end.${kind}.title` as MsgKey)}</h1>
         </div>
       )}
 
-      <div className="flex flex-1 flex-col px-5 py-6 sm:px-10 sm:py-8">
+      <div className="screen-in flex flex-1 flex-col px-5 py-6 sm:px-10 sm:py-8">
         <p className="font-medium">{s.company || s.captain}</p>
         {s.director ? <p className="text-sm text-muted">{t("end.director", { name: s.director })}</p> : null}
         <p className="mt-3 max-w-lg text-sm text-muted">{t(`end.${kind}.why` as MsgKey)}</p>
@@ -140,7 +140,7 @@ export function EndScreen() {
           <dd>{t("end.hulls", { n: s.fleet.length })}</dd>
         </dl>
 
-        <div className="mt-8 max-w-md rounded-lg border border-border bg-surface p-4">
+        <div className="panel mt-8 max-w-md p-4">
           {isPending ? (
             <div className="h-16 animate-pulse rounded-md bg-bg-elevated" />
           ) : user ? (

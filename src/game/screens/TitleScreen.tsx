@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
+import { HouseMark } from "@/components/ui/mark";
 import { useCurrentUser, useCurrentUserState } from "@/lib/auth/use-current-user";
 import { useT } from "@/i18n";
 import { unlockAudio } from "../audio";
@@ -48,68 +49,74 @@ export function TitleScreen() {
   }, [user]);
 
   return (
-    <div className="safe-pad relative flex min-h-dvh w-full min-w-0 max-w-full flex-col overflow-x-hidden bg-bg text-fg">
+    <div className="safe-pad harbour-grain relative flex min-h-dvh w-full min-w-0 max-w-full flex-col overflow-x-hidden bg-bg text-fg">
       <img src="/game/title-hero.jpg?v=3" alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
-      <div className="absolute inset-0 bg-linear-to-t from-bg via-bg/70 to-bg/25" />
+      <div className="harbour-hero absolute inset-0" />
+      <div className="compass-wash pointer-events-none absolute inset-0 opacity-80" />
       <div className="relative z-10 flex justify-end px-4 pt-4 sm:px-10">
         <AuthBar />
       </div>
-      <div className="relative z-10 flex flex-1 flex-col justify-end px-5 pb-10 pt-8 sm:px-10">
-        <p className="mb-3 text-xs font-medium tracking-[0.28em] text-accent">{t("brand.kicker")}</p>
-        <h1 className="font-display text-4xl font-medium leading-tight tracking-tight sm:text-6xl">{t("brand.game")}</h1>
-        <p className="mt-3 max-w-md text-sm text-muted sm:text-base">{t("title.blurb")}</p>
+      <div className="screen-in relative z-10 flex flex-1 flex-col justify-end px-5 pb-10 pt-8 sm:px-10">
+        <div className="mb-4 flex items-center gap-3">
+          <HouseMark size={48} />
+          <p className="kicker">{t("brand.kicker")}</p>
+        </div>
+        <h1 className="font-display text-4xl font-medium leading-[1.05] tracking-tight sm:text-6xl">{t("brand.game")}</h1>
+        <p className="mt-4 max-w-md text-sm leading-relaxed text-muted sm:text-base">{t("title.blurb")}</p>
         {postedNote ? <p className="mt-3 max-w-md text-sm text-ok">{postedNote}</p> : null}
 
-        <label className="mt-8 block max-w-sm text-xs font-medium tracking-wide text-muted">
-          {t("title.company")}
-          <input
-            value={company}
-            onChange={(e) => setCompany(e.target.value)}
-            onFocus={() => unlockAudio()}
-            placeholder={t("title.companyPh")}
-            maxLength={32}
-            autoComplete="organization"
-            className="mt-2 min-h-11 w-full rounded-md border border-border bg-surface px-3 text-sm text-fg outline-none placeholder:text-subtle focus:outline-2 focus:outline-offset-2 focus:outline-accent"
-            suppressHydrationWarning
-          />
-        </label>
-        <label className="mt-3 block max-w-sm text-xs font-medium tracking-wide text-muted">
-          {t("title.director")}
-          <input
-            value={director}
-            onChange={(e) => setDirector(e.target.value)}
-            onFocus={() => unlockAudio()}
-            placeholder={t("title.directorPh")}
-            maxLength={28}
-            autoComplete="name"
-            className="mt-2 min-h-11 w-full rounded-md border border-border bg-surface px-3 text-sm text-fg outline-none placeholder:text-subtle focus:outline-2 focus:outline-offset-2 focus:outline-accent"
-            suppressHydrationWarning
-          />
-        </label>
+        <div className="panel mt-8 max-w-md p-4 sm:p-5">
+          <label className="block text-xs font-medium tracking-wide text-muted">
+            {t("title.company")}
+            <input
+              value={company}
+              onChange={(e) => setCompany(e.target.value)}
+              onFocus={() => unlockAudio()}
+              placeholder={t("title.companyPh")}
+              maxLength={32}
+              autoComplete="organization"
+              className="field mt-2"
+              suppressHydrationWarning
+            />
+          </label>
+          <label className="mt-3 block text-xs font-medium tracking-wide text-muted">
+            {t("title.director")}
+            <input
+              value={director}
+              onChange={(e) => setDirector(e.target.value)}
+              onFocus={() => unlockAudio()}
+              placeholder={t("title.directorPh")}
+              maxLength={28}
+              autoComplete="name"
+              className="field mt-2"
+              suppressHydrationWarning
+            />
+          </label>
 
-        <div className="mt-5 flex max-w-md flex-col gap-2 sm:flex-row">
-          {hasSave ? (
-            <>
-              <Button className="flex-1" onClick={() => requirePlay(continueSave)}>
-                {t("title.continue")}
-              </Button>
-              <Button className="flex-1" variant="secondary" onClick={() => requirePlay(() => start(company, director))}>
+          <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+            {hasSave ? (
+              <>
+                <Button className="flex-1" onClick={() => requirePlay(continueSave)}>
+                  {t("title.continue")}
+                </Button>
+                <Button className="flex-1" variant="secondary" onClick={() => requirePlay(() => start(company, director))}>
+                  {t("title.new")}
+                </Button>
+              </>
+            ) : (
+              <Button className="flex-1" onClick={() => requirePlay(() => start(company, director))}>
                 {t("title.new")}
               </Button>
-            </>
-          ) : (
-            <Button className="flex-1" onClick={() => requirePlay(() => start(company, director))}>
-              {t("title.new")}
-            </Button>
-          )}
+            )}
+          </div>
+          <TrialChip />
+          <p className="mt-3 text-xs text-subtle">{user ? t("title.signedIn") : t("title.guest")}</p>
         </div>
-        <TrialChip />
-        <p className="mt-3 max-w-md text-xs text-subtle">{user ? t("title.signedIn") : t("title.guest")}</p>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <button type="button" className="text-xs text-muted underline-offset-4 hover:text-fg hover:underline" onClick={() => setAbout(true)}>
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <button type="button" className="link-quiet" onClick={() => setAbout(true)}>
             {t("title.about")}
           </button>
-          <Link to="/scoreboard" className="text-xs text-muted underline-offset-4 hover:text-fg hover:underline">
+          <Link to="/scoreboard" className="link-quiet">
             {t("title.board")}
           </Link>
           <TourneyTeaser />
@@ -117,14 +124,14 @@ export function TitleScreen() {
       </div>
       {paywallOpen ? <Paywall /> : null}
       {about ? (
-        <div className="absolute inset-0 z-20 grid place-items-center bg-bg/80 p-4" role="dialog">
-          <div className="max-w-lg rounded-xl border border-border bg-bg-elevated p-6 shadow-panel">
+        <div className="scrim absolute inset-0 z-20 grid place-items-center p-4" role="dialog">
+          <div className="sheet panel max-w-lg p-6">
             <h2 className="font-display text-2xl">{t("about.title")}</h2>
             <p className="mt-3 text-sm text-muted">{t("about.p1")}</p>
             <p className="mt-3 text-sm text-muted">{t("about.p2")}</p>
             <p className="mt-3 text-sm text-muted">{t("about.p3")}</p>
             <p className="mt-3 text-xs text-subtle">{t("about.legal")}</p>
-            <div className="mt-4 flex flex-wrap gap-3">
+            <div className="mt-5 flex flex-wrap gap-3">
               <Button onClick={() => setAbout(false)}>{t("about.close")}</Button>
               <Link to="/privacy" className="inline-flex min-h-11 items-center text-xs text-muted underline-offset-4 hover:text-fg hover:underline">
                 {t("privacy.title")}

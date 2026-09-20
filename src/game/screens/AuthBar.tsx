@@ -23,7 +23,7 @@ export function AuthBar({ extra, showTable = true }: { extra?: ReactNode; showTa
       {showTable ? (
         <Link
           to="/scoreboard"
-          className="inline-flex min-h-11 items-center rounded-md border border-border bg-bg-elevated/90 px-3 text-xs font-medium text-muted hover:text-fg"
+          className="inline-flex min-h-11 items-center rounded-md border border-border bg-bg-elevated/80 px-3 text-xs font-medium text-muted shadow-[inset_0_1px_0_rgb(255_255_255/0.05)] hover:border-brass/40 hover:text-fg"
         >
           {t("auth.board")}
         </Link>
@@ -31,11 +31,11 @@ export function AuthBar({ extra, showTable = true }: { extra?: ReactNode; showTa
       {isPending ? (
         <div className="h-11 w-28 animate-pulse rounded-md bg-surface" />
       ) : user ? (
-        <div className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-bg-elevated/90 px-2.5">
+        <div className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-bg-elevated/80 px-2.5 shadow-[inset_0_1px_0_rgb(255_255_255/0.05)]">
           {user.profileImageUrl ? (
             <img src={user.profileImageUrl} alt="" className="size-7 rounded-full object-cover" />
           ) : (
-            <span className="grid size-7 place-items-center rounded-full bg-surface text-xs font-medium">
+            <span className="grid size-7 place-items-center rounded-full bg-surface text-xs font-medium text-brass">
               {(user.displayName ?? user.primaryEmail ?? t("auth.captain")).charAt(0).toUpperCase()}
             </span>
           )}
@@ -65,7 +65,7 @@ export function AuthBar({ extra, showTable = true }: { extra?: ReactNode; showTa
         <Link
           to="/login"
           search={{ next: "/" }}
-          className="inline-flex min-h-11 items-center rounded-md bg-accent px-3 text-xs font-medium text-accent-fg"
+          className="inline-flex min-h-11 items-center rounded-md bg-accent px-3 text-xs font-medium text-accent-fg shadow-[inset_0_1px_0_rgb(255_255_255/0.2)]"
         >
           {t("auth.signIn")}
         </Link>

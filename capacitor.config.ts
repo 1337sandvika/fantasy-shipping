@@ -26,7 +26,7 @@ const config: CapacitorConfig = {
     contentInset: "never",
     preferredContentMode: "mobile",
     zoomEnabled: false,
-    backgroundColor: "#071018",
+    backgroundColor: "#06141c",
     scheme: "Fantasy Shipping",
     limitsNavigationsToAppBoundDomains: false,
   },
@@ -34,14 +34,14 @@ const config: CapacitorConfig = {
     SplashScreen: {
       launchShowDuration: 1800,
       launchAutoHide: true,
-      backgroundColor: "#071018",
+      backgroundColor: "#06141c",
       showSpinner: false,
       splashFullScreen: true,
       splashImmersive: true,
     },
     StatusBar: {
       style: "DARK",
-      backgroundColor: "#071018",
+      backgroundColor: "#06141c",
     },
   },
 };

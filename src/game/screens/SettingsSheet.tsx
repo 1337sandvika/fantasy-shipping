@@ -47,7 +47,7 @@ export function SettingsSheet() {
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-stretch justify-center bg-bg/85 sm:items-center sm:p-4"
+      className="scrim fixed inset-0 z-40 flex items-stretch justify-center sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="settings-title"
@@ -55,10 +55,10 @@ export function SettingsSheet() {
         if (e.target === e.currentTarget) setSettings(false);
       }}
     >
-      <div className="flex h-full w-full max-w-lg flex-col bg-bg-elevated text-fg sm:h-[min(42rem,90dvh)] sm:rounded-xl sm:border sm:border-border sm:shadow-panel">
+      <div className="sheet flex h-full w-full max-w-lg flex-col bg-bg-elevated text-fg sm:h-[min(42rem,90dvh)] sm:rounded-xl sm:border sm:border-border sm:shadow-panel">
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3">
           <div className="flex min-w-0 items-center gap-2">
-            <Settings className="size-4 text-accent" aria-hidden />
+            <Settings className="size-4 text-brass" strokeWidth={1.75} aria-hidden />
             <h2 id="settings-title" className="font-display text-xl">
               {t("set.title")}
             </h2>
@@ -84,8 +84,8 @@ export function SettingsSheet() {
                   lang={l.html}
                   onClick={() => setLocale(l.id)}
                   className={cn(
-                    "min-h-11 rounded-md border px-3 text-sm",
-                    locale === l.id ? "border-accent bg-surface text-fg" : "border-border text-muted hover:text-fg",
+                    "chip py-0 text-sm",
+                    locale === l.id && "chip-on",
                   )}
                 >
                   {l.native}
@@ -368,7 +368,7 @@ function TourneyBlock({ signedIn, pending }: { signedIn: boolean; pending: boole
   return (
     <section className="mt-6">
       <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-subtle">
-        <Trophy className="size-3.5 text-accent" aria-hidden />
+        <Trophy className="size-3.5 text-brass" strokeWidth={1.75} aria-hidden />
         {t("set.tournaments")}
       </p>
       <p className="mt-1 text-sm text-muted">{t("set.tourneyBlurb")}</p>
@@ -394,7 +394,7 @@ function TourneyBlock({ signedIn, pending }: { signedIn: boolean; pending: boole
                 required
                 minLength={2}
                 maxLength={28}
-                className="mt-1 min-h-11 w-full rounded-md border border-border bg-surface px-3 text-sm text-fg outline-none focus:outline-2 focus:outline-offset-2 focus:outline-accent"
+                className="field mt-1"
               />
             </label>
             <div className="flex flex-wrap gap-1">
@@ -404,8 +404,8 @@ function TourneyBlock({ signedIn, pending }: { signedIn: boolean; pending: boole
                   type="button"
                   onClick={() => setDuration(d)}
                   className={cn(
-                    "min-h-11 rounded-md border px-3 text-xs font-medium",
-                    duration === d ? "border-accent bg-surface text-fg" : "border-border text-muted hover:text-fg",
+                    "chip py-0",
+                    duration === d && "chip-on",
                   )}
                 >
                   {t(d === 7 ? "comp.d7" : d === 30 ? "comp.d30" : d === 60 ? "comp.d60" : "comp.d0")}
@@ -418,7 +418,7 @@ function TourneyBlock({ signedIn, pending }: { signedIn: boolean; pending: boole
           </form>
 
           {fresh ? (
-            <p className="mt-3 rounded-md border border-accent/40 bg-accent/10 px-3 py-2 font-mono text-sm tracking-widest">
+            <p className="mt-3 rounded-md border border-brass/40 bg-brass/10 px-3 py-2 font-mono text-sm tracking-widest text-brass">
               {t("board.code")} {fresh}
             </p>
           ) : null}
@@ -430,7 +430,7 @@ function TourneyBlock({ signedIn, pending }: { signedIn: boolean; pending: boole
                 value={code}
                 onChange={(e) => setCode(e.target.value.toUpperCase())}
                 maxLength={8}
-                className="mt-1 min-h-11 w-full rounded-md border border-border bg-surface px-3 font-mono text-sm tracking-widest text-fg outline-none focus:outline-2 focus:outline-offset-2 focus:outline-accent"
+                className="field mt-1 font-mono tracking-widest"
               />
             </label>
             <Button type="submit" variant="secondary" disabled={busy || code.trim().length < 4}>

@@ -14,6 +14,7 @@ import { tr } from "./tr";
 import { zh } from "./zh";
 import { extraMsg } from "./wreck-msg";
 import { setDaysLeftFmt, setFormatLocale } from "../game/format";
+import { loadHarbourFonts } from "../lib/fonts";
 
 export type Locale =
   | "en"
@@ -124,6 +125,7 @@ function applySideEffects(l: Locale) {
     document.documentElement.classList.toggle("font-cjk", l === "zh");
     document.documentElement.classList.toggle("font-deva", l === "hi");
     document.documentElement.classList.toggle("font-el", l === "el");
+    loadHarbourFonts(l);
   }
 }
 
@@ -182,6 +184,7 @@ export function countryName(code: string, loc: Locale = locale): string {
 
 export function I18nBoot() {
   useEffect(() => {
+    loadHarbourFonts();
     setLocale(detectLocale());
   }, []);
   return null;

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
+import { HouseMark } from "@/components/ui/mark";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { errMsg, useT, type MsgKey } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -74,18 +75,21 @@ export function ScoreboardScreen() {
   const t = useT();
 
   return (
-    <div className="safe-pad flex min-h-dvh w-full min-w-0 max-w-full flex-col overflow-x-hidden bg-bg text-fg">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-8">
-        <div>
-          <p className="text-xs font-medium tracking-[0.28em] text-accent">{t("brand.results")}</p>
-          <h1 className="font-display text-2xl sm:text-3xl">{t("board.title")}</h1>
+    <div className="safe-pad harbour-grain compass-wash relative flex min-h-dvh w-full min-w-0 max-w-full flex-col overflow-x-hidden bg-bg text-fg">
+      <header className="relative z-10 flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-8">
+        <div className="flex items-center gap-3">
+          <HouseMark size={40} />
+          <div>
+            <p className="kicker">{t("brand.results")}</p>
+            <h1 className="font-display text-2xl leading-tight sm:text-3xl">{t("board.title")}</h1>
+          </div>
         </div>
         <AuthBar
           showTable={false}
           extra={
             <Link
               to="/"
-              className="inline-flex min-h-11 items-center rounded-md border border-border bg-bg-elevated/90 px-3 text-xs font-medium text-muted hover:text-fg"
+              className="inline-flex min-h-11 items-center rounded-md border border-border bg-bg-elevated/80 px-3 text-xs font-medium text-muted shadow-[inset_0_1px_0_rgb(255_255_255/0.05)] hover:border-brass/40 hover:text-fg"
             >
               {t("auth.play")}
             </Link>
@@ -93,23 +97,20 @@ export function ScoreboardScreen() {
         />
       </header>
 
-      <nav className="flex gap-1 border-b border-border px-3 py-1 sm:px-8">
+      <nav className="relative z-10 flex gap-1 border-b border-border px-3 sm:px-8">
         {(["play", "mine", "league"] as const).map((id) => (
           <button
             key={id}
             type="button"
             onClick={() => setTab(id)}
-            className={cn(
-              "min-h-11 rounded-md px-3 text-sm font-medium",
-              tab === id ? "bg-surface text-fg" : "text-muted hover:text-fg",
-            )}
+            className={cn("tab", tab === id && "tab-on")}
           >
             {t(`board.${id}` as MsgKey)}
           </button>
         ))}
       </nav>
 
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 sm:px-8">
+      <main className="screen-in relative z-10 mx-auto w-full max-w-3xl flex-1 px-4 py-7 sm:px-8">
         {tab === "play" ? <OfficialList signedIn={Boolean(user)} pending={isPending} /> : null}
         {tab === "mine" ? <MineTab signedIn={Boolean(user)} pending={isPending} /> : null}
         {tab === "league" ? <LeagueTab signedIn={Boolean(user)} pending={isPending} /> : null}
@@ -121,13 +122,13 @@ export function ScoreboardScreen() {
 function NeedAccount({ title, body }: { title: string; body: string }) {
   const t = useT();
   return (
-    <div className="rounded-xl border border-border bg-bg-elevated p-6">
+    <div className="panel p-6">
       <h2 className="font-display text-xl">{title}</h2>
-      <p className="mt-2 text-sm text-muted">{body}</p>
+      <p className="mt-2 text-sm leading-relaxed text-muted">{body}</p>
       <Link
         to="/login"
         search={{ next: "/scoreboard" }}
-        className="mt-5 inline-flex min-h-11 items-center rounded-md bg-accent px-4 text-sm font-medium text-accent-fg"
+        className="mt-5 inline-flex min-h-11 items-center rounded-md bg-accent px-4 text-sm font-medium text-accent-fg shadow-[inset_0_1px_0_rgb(255_255_255/0.2)]"
       >
         {t("auth.signIn")}
       </Link>
@@ -179,7 +180,7 @@ function MineTab({ signedIn, pending }: { signedIn: boolean; pending: boolean })
       <p className="mt-1 text-xs text-subtle">{place ? t("board.globalRank") + ` #${place}` : t("board.notTop")}</p>
       <ol className="mt-5 space-y-2">
         {rows.map((r) => (
-          <li key={r.id} className="flex items-baseline justify-between gap-3 rounded-md border border-border bg-bg-elevated px-3 py-2">
+          <li key={r.id} className="board-row">
             <span className="text-sm">
               {t("board.dayCeu", { kind: t(`end.kind.${r.endKind}` as MsgKey), day: r.day, ceu: qty(r.deliveredCeu) })}
             </span>
@@ -317,9 +318,9 @@ function LeagueTab({ signedIn, pending }: { signedIn: boolean; pending: boolean 
 
   return (
     <div className="space-y-8">
-      <section className="rounded-xl border border-border bg-bg-elevated p-5">
-        <p className="text-xs font-medium tracking-[0.22em] text-accent">{t("comp.kicker")}</p>
-        <p className="mt-2 text-sm text-muted">{t("comp.blurb")}</p>
+      <section className="panel p-5">
+        <p className="kicker">{t("comp.kicker")}</p>
+        <p className="mt-2 text-sm leading-relaxed text-muted">{t("comp.blurb")}</p>
         <p className="mt-2 text-xs text-subtle">{t("comp.createHint")}</p>
         <form onSubmit={onCreate} className="mt-4 space-y-4">
           <label className="block text-xs font-medium text-muted">
@@ -330,7 +331,7 @@ function LeagueTab({ signedIn, pending }: { signedIn: boolean; pending: boolean 
               required
               minLength={2}
               maxLength={28}
-              className="mt-1 min-h-11 w-full rounded-md border border-border bg-surface px-3 text-sm text-fg outline-none focus:outline-2 focus:outline-offset-2 focus:outline-accent"
+              className="field mt-1"
             />
           </label>
           <SeasonFields
@@ -348,7 +349,7 @@ function LeagueTab({ signedIn, pending }: { signedIn: boolean; pending: boolean 
                 value={teamName}
                 onChange={(e) => setTeamName(e.target.value)}
                 maxLength={22}
-                className="mt-1 min-h-11 w-full rounded-md border border-border bg-surface px-3 text-sm text-fg outline-none focus:outline-2 focus:outline-offset-2 focus:outline-accent"
+                className="field mt-1"
               />
             </label>
           ) : null}
@@ -364,7 +365,7 @@ function LeagueTab({ signedIn, pending }: { signedIn: boolean; pending: boolean 
                 value={code}
                 onChange={(e) => setCode(e.target.value.toUpperCase())}
                 maxLength={8}
-                className="mt-1 min-h-11 w-full rounded-md border border-border bg-surface px-3 font-mono text-sm tracking-widest text-fg outline-none focus:outline-2 focus:outline-offset-2 focus:outline-accent"
+                className="field mt-1 font-mono tracking-widest"
               />
             </label>
             <label className="block flex-1 text-xs font-medium text-muted">
@@ -373,7 +374,7 @@ function LeagueTab({ signedIn, pending }: { signedIn: boolean; pending: boolean 
                 value={joinTeam}
                 onChange={(e) => setJoinTeam(e.target.value)}
                 maxLength={22}
-                className="mt-1 min-h-11 w-full rounded-md border border-border bg-surface px-3 text-sm text-fg outline-none focus:outline-2 focus:outline-offset-2 focus:outline-accent"
+                className="field mt-1"
               />
             </label>
             <Button type="submit" variant="secondary" disabled={busy || code.trim().length < 4}>
@@ -399,7 +400,9 @@ function LeagueTab({ signedIn, pending }: { signedIn: boolean; pending: boolean 
                 onClick={() => setSelected(l.id)}
                 className={cn(
                   "flex min-h-11 w-full items-center justify-between gap-3 rounded-md border px-3 text-left text-sm",
-                  selected === l.id ? "border-accent bg-surface" : "border-border bg-bg-elevated hover:border-muted",
+                  selected === l.id
+                    ? "border-brass/50 bg-surface shadow-[inset_3px_0_0_var(--color-brass)]"
+                    : "border-border bg-bg-elevated hover:border-muted",
                 )}
               >
                 <span>
@@ -466,10 +469,7 @@ function SeasonFields({
                 key={m.id}
                 type="button"
                 onClick={() => onMode(m.id)}
-                className={cn(
-                  "min-h-11 rounded-md border px-3 py-2 text-left",
-                  mode === m.id ? "border-accent bg-surface" : "border-border hover:border-muted",
-                )}
+                className={cn("chip", mode === m.id && "chip-on")}
               >
                 <span className="block text-sm font-medium">{t(m.label)}</span>
                 <span className="mt-1 block text-xs text-subtle">{t(m.hint)}</span>
@@ -486,10 +486,7 @@ function SeasonFields({
               key={d.days}
               type="button"
               onClick={() => onDuration(d.days)}
-              className={cn(
-                "min-h-11 rounded-md border px-3 text-xs font-medium",
-                duration === d.days ? "border-accent bg-surface text-fg" : "border-border text-muted hover:text-fg",
-              )}
+                className={cn("chip py-0", duration === d.days && "chip-on")}
             >
               {t(d.key)}
             </button>
@@ -504,10 +501,7 @@ function SeasonFields({
               key={s.id}
               type="button"
               onClick={() => onScoring(s.id)}
-              className={cn(
-                "min-h-11 rounded-md border px-3 py-2 text-left",
-                scoring === s.id ? "border-accent bg-surface" : "border-border hover:border-muted",
-              )}
+                className={cn("chip", scoring === s.id && "chip-on")}
             >
               <span className="block text-sm font-medium">{t(s.label)}</span>
               <span className="mt-1 block text-xs text-subtle">{t(s.hint)}</span>
@@ -527,11 +521,11 @@ function SeasonBanner({ meta }: { meta: LeagueBoard["meta"] }) {
     return () => window.clearInterval(id);
   }, []);
   return (
-    <div className="rounded-xl border border-border bg-surface px-4 py-3">
+    <div className="panel px-4 py-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="font-display text-lg">
           {t("comp.season", { n: meta.seasonNo })}
-          <span className="ml-2 text-xs font-sans tracking-wider text-accent">{meta.live ? t("comp.live") : t("comp.ended")}</span>
+          <span className="ml-2 text-xs font-sans tracking-wider text-brass">{meta.live ? t("comp.live") : t("comp.ended")}</span>
         </p>
         <p className="text-xs text-muted">{clockLabel(meta.endsAt, now, t)}</p>
       </div>
@@ -670,7 +664,7 @@ function LeagueDetail({
               value={switchTeam}
               onChange={(e) => setSwitchTeam(e.target.value)}
               maxLength={22}
-              className="mt-1 min-h-11 w-full rounded-md border border-border bg-surface px-3 text-sm text-fg"
+              className="field mt-1"
             />
           </label>
           <Button type="submit" size="sm" variant="secondary" disabled={saving || switchTeam.trim().length < 2}>
@@ -680,8 +674,8 @@ function LeagueDetail({
       ) : null}
 
       {league.owner && meta ? (
-        <div className="rounded-xl border border-border bg-bg-elevated p-4">
-          <p className="text-xs font-medium tracking-wide text-muted">{t("comp.settings")}</p>
+        <div className="panel p-4">
+          <p className="kicker">{t("comp.settings")}</p>
           <p className="mt-1 text-xs text-subtle">{t("comp.applyNow")}</p>
           <div className="mt-3">
             <SeasonFields duration={duration} scoring={scoring} onDuration={setDuration} onScoring={setScoring} />
@@ -720,18 +714,15 @@ function LeagueDetail({
 
       {board && board.teams.length > 0 ? (
         <div>
-          <h3 className="text-xs font-medium tracking-wide text-muted">{t("comp.teamBoard")}</h3>
+          <h3 className="kicker">{t("comp.teamBoard")}</h3>
           <ol className="mt-2 space-y-1">
             {board.teams.map((r) => (
               <li
                 key={r.name}
-                className={cn(
-                  "flex items-baseline justify-between gap-3 rounded-md border px-3 py-2",
-                  r.mine ? "border-accent bg-surface" : "border-border bg-bg-elevated",
-                )}
+                className={cn("board-row", r.mine && "board-row-mine")}
               >
                 <span className="flex min-w-0 items-baseline gap-3">
-                  <span className="w-6 font-mono text-xs tabular-nums text-subtle">{r.rank}</span>
+                  <span className={cn("w-6 font-mono text-xs tabular-nums", r.rank <= 3 ? `rank-${r.rank}` : "text-subtle")}>{r.rank}</span>
                   <span className="truncate text-sm font-medium">
                     {r.name === "Unaffiliated" ? t("comp.unaffiliated") : r.name}
                     {r.mine ? <span className="ml-2 text-xs font-normal text-accent">{t("board.you")}</span> : null}
@@ -764,7 +755,7 @@ function PastSeasons({ past }: { past: LeagueBoard["past"] }) {
   const t = useT();
   return (
     <div>
-      <h3 className="text-xs font-medium tracking-wide text-muted">{t("comp.past")}</h3>
+      <h3 className="kicker">{t("comp.past")}</h3>
       <ul className="mt-2 space-y-1">
         {past.map((p) => (
           <li key={p.seasonNo} className="text-xs text-subtle">
@@ -785,13 +776,10 @@ function BoardTable({ rows, kind }: { rows: BoardRow[]; kind: Scoring | "best" }
       {rows.map((r) => (
         <li
           key={`${r.rank}-${r.handle}`}
-          className={cn(
-            "flex items-baseline justify-between gap-3 rounded-md border px-3 py-2",
-            r.mine ? "border-accent bg-surface" : "border-border bg-bg-elevated",
-          )}
+          className={cn("board-row", r.mine && "board-row-mine")}
         >
           <span className="flex min-w-0 items-baseline gap-3">
-            <span className="w-6 font-mono text-xs tabular-nums text-subtle">{r.rank}</span>
+            <span className={cn("w-6 font-mono text-xs tabular-nums", r.rank <= 3 ? `rank-${r.rank}` : "text-subtle")}>{r.rank}</span>
             <span className="truncate text-sm font-medium">
               {r.handle}
               {r.mine ? <span className="ml-2 text-xs font-normal text-accent">{t("board.you")}</span> : null}

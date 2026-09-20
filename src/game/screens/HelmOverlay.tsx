@@ -70,8 +70,8 @@ export function HelmOverlay() {
         />
       ) : (
         <div className="flex min-h-0 flex-1 items-center justify-center p-4">
-          <div className="w-full max-w-lg rounded-xl border border-border bg-bg-elevated p-5 shadow-panel">
-            <p className="text-xs tracking-[0.2em] text-accent">{mode === "wreck" ? t("helm.wreckKicker") : t("helm.kicker")}</p>
+          <div className="sheet panel w-full max-w-lg p-5">
+            <p className="kicker">{mode === "wreck" ? t("helm.wreckKicker") : t("helm.kicker")}</p>
             <h2 className="mt-1 font-display text-2xl">{mode === "wreck" ? t(wreckTitle) : mode === "crash" ? t("helm.crashTitle") : title}</h2>
             <p className="mt-3 text-sm text-muted">
               {mode === "wreck"

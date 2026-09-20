@@ -10,8 +10,8 @@ export function EtsModal() {
   if (!ets) return null;
   const amount = ets.t * ets.price;
   return (
-    <div className="fixed inset-0 z-40 grid place-items-center bg-bg/80 p-4">
-      <div className="w-full max-w-md rounded-xl border border-border bg-bg-elevated p-5 shadow-panel">
+    <div className="scrim fixed inset-0 z-40 grid place-items-center p-4">
+      <div className="sheet panel w-full max-w-md p-5">
         <h2 className="font-display text-2xl">{t("ets.title")}</h2>
         <p className="mt-3 text-sm text-muted">{t("ets.body", { t: ets.t, price: ets.price, amount: money(amount) })}</p>
         {ets.ships.length ? (

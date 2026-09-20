@@ -11,7 +11,7 @@ export function FleetBar() {
   const t = useT();
   if (!s.fleet.length) return null;
   return (
-    <div className="flex min-w-0 w-full max-w-full gap-2 overflow-x-auto overscroll-x-contain border-b border-border bg-bg-elevated px-2 py-1.5 sm:py-2">
+    <div className="flex min-w-0 w-full max-w-full gap-2 overflow-x-auto overscroll-x-contain border-b border-border bg-bg-elevated/95 px-2 py-1.5 sm:py-2">
       {s.fleet.map((sh) => {
         const on = sh.id === s.activeId;
         const leg = shipLeg(s, sh.id);
@@ -30,7 +30,9 @@ export function FleetBar() {
             onClick={() => switchShip(sh.id)}
             className={cn(
               "min-h-11 min-w-[9.5rem] shrink-0 rounded-md border px-2.5 py-1 text-left sm:min-w-[12rem] sm:px-3 sm:py-1.5",
-              on ? "border-accent bg-surface" : "border-border bg-bg hover:border-muted",
+              on
+                ? "border-brass/50 bg-surface shadow-[inset_3px_0_0_var(--color-brass)]"
+                : "border-border bg-bg hover:border-muted",
             )}
           >
             <p className="truncate text-xs font-medium">
@@ -80,7 +82,7 @@ export function TempoBar() {
   ];
   return (
     <div className="flex min-w-0 w-full max-w-full flex-col items-start gap-1 sm:flex-row sm:flex-wrap sm:items-center">
-      <div className="flex items-center gap-0.5 rounded-md border border-border bg-bg-elevated/90 p-0.5 sm:gap-1 sm:p-1">
+      <div className="flex items-center gap-0.5 rounded-md border border-border bg-bg-elevated/85 p-0.5 shadow-[inset_0_1px_0_rgb(255_255_255/0.04)] backdrop-blur-md sm:gap-1 sm:p-1">
         {options.map((o) => (
           <button
             key={o.n}
@@ -88,7 +90,7 @@ export function TempoBar() {
             onClick={() => setTempo(o.n)}
             className={cn(
               "min-h-10 min-w-10 rounded-md px-1.5 text-xs font-medium sm:px-2",
-              tempo === o.n ? "bg-accent text-accent-fg" : "text-muted hover:text-fg",
+              tempo === o.n ? "bg-accent text-accent-fg shadow-[inset_0_1px_0_rgb(255_255_255/0.2)]" : "text-muted hover:text-fg",
             )}
           >
             {o.label}
@@ -98,13 +100,13 @@ export function TempoBar() {
           <span className="hidden px-1 text-[10px] uppercase tracking-wider text-warn sm:inline">{t("tempo.paused")}</span>
         ) : null}
       </div>
-      <div className="flex items-center gap-0.5 rounded-md border border-border bg-bg-elevated/90 p-0.5 sm:gap-1 sm:p-1">
+      <div className="flex items-center gap-0.5 rounded-md border border-border bg-bg-elevated/85 p-0.5 shadow-[inset_0_1px_0_rgb(255_255_255/0.04)] backdrop-blur-md sm:gap-1 sm:p-1">
         <button
           type="button"
           onClick={() => setFollow(true)}
           className={cn(
             "min-h-10 rounded-md px-2 text-xs font-medium",
-            follow ? "bg-accent text-accent-fg" : "text-muted hover:text-fg",
+            follow ? "bg-accent text-accent-fg shadow-[inset_0_1px_0_rgb(255_255_255/0.2)]" : "text-muted hover:text-fg",
           )}
         >
           {t("map.follow")}
@@ -114,7 +116,7 @@ export function TempoBar() {
           onClick={() => setAtlas("europe")}
           className={cn(
             "min-h-10 rounded-md px-2 text-xs font-medium",
-            !follow && atlas === "europe" ? "bg-accent text-accent-fg" : "text-muted hover:text-fg",
+            !follow && atlas === "europe" ? "bg-accent text-accent-fg shadow-[inset_0_1px_0_rgb(255_255_255/0.2)]" : "text-muted hover:text-fg",
           )}
         >
           {t("map.europe")}
@@ -124,7 +126,7 @@ export function TempoBar() {
           onClick={() => setAtlas("world")}
           className={cn(
             "min-h-10 rounded-md px-2 text-xs font-medium",
-            !follow && atlas === "world" ? "bg-accent text-accent-fg" : "text-muted hover:text-fg",
+            !follow && atlas === "world" ? "bg-accent text-accent-fg shadow-[inset_0_1px_0_rgb(255_255_255/0.2)]" : "text-muted hover:text-fg",
           )}
         >
           {t("map.world")}

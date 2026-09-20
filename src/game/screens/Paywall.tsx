@@ -33,14 +33,14 @@ export function Paywall({ blocking = false, onLeaveToTitle }: Props) {
 
   return (
     <div
-      className="absolute inset-0 z-50 grid place-items-center bg-bg/80 p-4"
+      className="scrim absolute inset-0 z-50 grid place-items-center p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="iap-title"
     >
-      <div className="w-full max-w-md rounded-xl border border-border bg-bg-elevated p-6 shadow-panel">
-        <p className="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.22em] text-accent">
-          <Anchor className="size-3.5" aria-hidden />
+      <div className="sheet panel w-full max-w-md p-6">
+        <p className="mb-2 flex items-center gap-2 kicker">
+          <Anchor className="size-3.5" strokeWidth={1.75} aria-hidden />
           {t("iap.kicker")}
         </p>
         <h2 id="iap-title" className="font-display text-2xl">

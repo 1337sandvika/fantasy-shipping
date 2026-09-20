@@ -37,14 +37,14 @@ function Privacy() {
   }
 
   return (
-    <div className="safe-pad relative flex min-h-dvh w-full min-w-0 max-w-full flex-col overflow-x-hidden bg-bg text-fg">
+    <div className="safe-pad harbour-grain relative flex min-h-dvh w-full min-w-0 max-w-full flex-col overflow-x-hidden bg-bg text-fg">
       <img src="/game/title-hero.jpg?v=3" alt="" className="absolute inset-0 h-full w-full object-cover" />
-      <div className="absolute inset-0 bg-linear-to-t from-bg via-bg/85 to-bg/50" />
+      <div className="harbour-hero absolute inset-0" />
       <div className="relative z-10 flex justify-end px-4 pt-4">
         <LanguageSwitch compact />
       </div>
-      <div className="relative z-10 mx-auto flex w-full max-w-lg flex-1 flex-col justify-end px-5 pb-10 pt-8 sm:justify-center">
-        <p className="text-xs font-medium tracking-[0.28em] text-accent">{t("privacy.kicker")}</p>
+      <div className="screen-in relative z-10 mx-auto flex w-full max-w-lg flex-1 flex-col justify-end px-5 pb-10 pt-8 sm:justify-center">
+        <p className="kicker">{t("privacy.kicker")}</p>
         <h1 className="mt-2 font-display text-4xl">{t("privacy.title")}</h1>
         <p className="mt-1 text-xs text-subtle">{t("privacy.updated")}</p>
         <p className="mt-4 text-sm text-muted">{t("privacy.p1")}</p>
@@ -52,7 +52,7 @@ function Privacy() {
         <p className="mt-3 text-sm text-muted">{t("privacy.p3")}</p>
         <p className="mt-3 text-xs text-subtle">{t("about.legal")}</p>
         {!isPending && user ? (
-          <div className="mt-6 rounded-lg border border-border bg-bg-elevated/80 p-4">
+          <div className="panel mt-6 p-4">
             <p className="text-sm text-muted">{t("privacy.deleteHint")}</p>
             <Button className="mt-3" variant="secondary" disabled={busy} onClick={() => void onDelete()}>
               {busy ? t("privacy.deleting") : t("privacy.delete")}
@@ -60,7 +60,7 @@ function Privacy() {
             {note ? <p className="mt-2 text-xs text-subtle">{note}</p> : null}
           </div>
         ) : null}
-        <Link to="/" className="mt-8 text-xs text-muted underline-offset-4 hover:text-fg hover:underline">
+        <Link to="/" className="link-quiet mt-8">
           {t("privacy.back")}
         </Link>
       </div>

@@ -19,8 +19,8 @@ export function EventModal() {
   const bHint = ev.b ? maybeT(ev.b.hint, ev.vars) : "";
   const showB = Boolean(ev.b) && ev.b!.id !== ev.a.id && `${bLabel}\0${bHint}` !== `${aLabel}\0${aHint}`;
   return (
-    <div className="fixed inset-0 z-40 grid place-items-center bg-bg/80 p-4">
-      <div className="w-full max-w-lg overflow-hidden rounded-xl border border-border bg-bg-elevated shadow-panel">
+    <div className="scrim fixed inset-0 z-40 grid place-items-center p-4">
+      <div className="sheet panel w-full max-w-lg overflow-hidden">
         {art ? (
           <div className="relative">
             <img
@@ -34,7 +34,7 @@ export function EventModal() {
           </div>
         ) : null}
         <div className="p-5">
-          <p className="text-xs tracking-[0.2em] text-accent">{t("brand.hq")}</p>
+          <p className="kicker">{t("brand.hq")}</p>
           <h2 className="mt-1 font-display text-2xl">{maybeT(ev.title, ev.vars)}</h2>
           {verdict && ev.vars ? (
             <VerdictBrief vars={ev.vars} />

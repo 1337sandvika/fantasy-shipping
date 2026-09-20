@@ -160,7 +160,7 @@ function SplitHandle({
       role="separator"
       aria-label={maybeT("map.resize")}
       aria-orientation="horizontal"
-      className="relative z-20 flex h-4 w-full shrink-0 cursor-row-resize touch-none items-center justify-center border-y border-border bg-bg-elevated sm:h-auto sm:w-3.5 sm:cursor-col-resize sm:flex-col sm:border-x sm:border-y-0"
+      className="relative z-20 flex h-4 w-full shrink-0 cursor-row-resize touch-none items-center justify-center border-y border-border bg-bg-elevated/95 sm:h-auto sm:w-3.5 sm:cursor-col-resize sm:flex-col sm:border-x sm:border-y-0"
       onPointerDown={(e) => {
         e.preventDefault();
         e.currentTarget.setPointerCapture(e.pointerId);
@@ -188,7 +188,7 @@ function SplitHandle({
       }}
       onDoubleClick={() => onSplit({ mapVh: 36, panelW: 380 })}
     >
-      <span className="block h-1 w-10 rounded-full bg-muted sm:h-10 sm:w-1" />
+      <span className="block h-1 w-10 rounded-full bg-brass/55 sm:h-10 sm:w-1" />
     </div>
   );
 }
@@ -208,7 +208,7 @@ function CareerShell() {
   const { mapVh, panelW, stacked, setSplit } = useMapSplit();
 
   return (
-    <div className="safe-pad relative flex h-dvh min-h-0 w-full min-w-0 max-w-full flex-col overflow-x-hidden overflow-y-hidden bg-bg text-fg">
+    <div className="safe-pad screen-in relative flex h-dvh min-h-0 w-full min-w-0 max-w-full flex-col overflow-x-hidden overflow-y-hidden bg-bg text-fg">
       <HUD />
       <FleetBar />
       <div className="hidden sm:block">
@@ -225,20 +225,20 @@ function CareerShell() {
             <button
               type="button"
               onClick={() => setMapHud(!mapHud)}
-              className="flex size-11 items-center justify-center rounded-md border border-border bg-bg-elevated/90 text-fg"
+              className="icon-btn"
               aria-label={t(mapHud ? "map.hideHud" : "map.showHud")}
               title={t(mapHud ? "map.hideHud" : "map.showHud")}
             >
-              {mapHud ? <ChevronsDown className="size-4" /> : <ChevronsUp className="size-4" />}
+              {mapHud ? <ChevronsDown className="size-4" strokeWidth={1.75} /> : <ChevronsUp className="size-4" strokeWidth={1.75} />}
             </button>
             {mapHud ? (
               <button
                 type="button"
                 onClick={() => setSettings(true)}
-                className="flex size-11 items-center justify-center rounded-md border border-border bg-bg-elevated/90 text-fg"
+                className="icon-btn"
                 aria-label={t("set.title")}
               >
-                <Settings className="size-4" />
+                <Settings className="size-4" strokeWidth={1.75} />
               </button>
             ) : null}
           </div>
@@ -282,7 +282,7 @@ function StatusBanners() {
   const tcOverdue = (s.charters ?? []).some((c) => c.kind === "in" && s.day + 1e-6 >= c.untilDay);
   if (!ddWarn && !heatWarn && !etsWarn && !bargeWarn && !tcOverdue) return null;
   return (
-    <div className="flex flex-wrap gap-2 border-b border-border bg-surface px-3 py-1 text-xs">
+    <div className="flex flex-wrap gap-2 border-b border-border bg-surface/90 px-3 py-1.5 text-xs">
       {bargeWarn ? (
         <span className="text-warn">{t("hud.barge", { n: bargeDays.toFixed(1) })}</span>
       ) : null}
