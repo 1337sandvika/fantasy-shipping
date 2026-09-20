@@ -112,7 +112,7 @@ export function TodayStrip({ onOpen }: { onOpen?: () => void }) {
       className="panel flex w-full items-center justify-between gap-3 px-3 py-2 text-left"
     >
       <span>
-        <span className="kicker">{t("daily.kicker")}</span>
+        <span className="kicker block">{t("daily.kicker")}</span>
         <span className="text-sm">
           {t("daily.progress", { n, of: daily.slots.length })}
           {daily.claimed ? ` · ${t("daily.claimed")}` : ""}

@@ -4,7 +4,7 @@ import { loadSave } from "../save";
 import type { GameState } from "../types";
 import { CHALLENGE_DEFAULTS, decodeInvite, decodeResult, encodeInvite, encodeResult, makeId } from "./codes";
 import { makeDaily } from "./dailies";
-import { loadBlob, saveBlob } from "./persist";
+import { freshBlob, loadBlob, saveBlob } from "./persist";
 import { applyCounters, completedCount, detectDelta, emptyCounters, tickChallenges, tickSlots } from "./progress";
 import { emptySnapshot, snapshotFromCareer, utcDate } from "./profile";
 import type { Challenge, ChallengeKind, DailyKind, Friend, LineSnapshot, SocialBlob } from "./types";
@@ -67,7 +67,7 @@ function rollover(blob: SocialBlob, now = Date.now()): SocialBlob {
 }
 
 export const useSocial = create<SocialStore>((set, get) => ({
-  blob: loadBlob(),
+  blob: freshBlob(),
   desk: false,
   deskTab: "today",
   guide: false,
@@ -95,7 +95,7 @@ export const useSocial = create<SocialStore>((set, get) => ({
     set({ blob });
   },
   ensureDay: (now) => {
-    const blob = persist(rollover(get().blob, now));
+    const blob = persist(rollover(loadBlob(), now));
     set({ blob });
   },
   applyCareer: (prev, next) => {

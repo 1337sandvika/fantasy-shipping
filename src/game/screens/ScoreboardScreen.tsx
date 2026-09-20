@@ -30,7 +30,7 @@ import { AuthBar } from "./AuthBar";
 import { OfficialList } from "./OfficialTournaments";
 import { ChallengeRail, TodayStrip } from "./SocialDesk";
 import { LineCard } from "./LineCard";
-import { liveSnapshot, useSocial } from "../social/store";
+import { bootSocial, liveSnapshot, useSocial } from "../social/store";
 import { useGame } from "../store";
 
 type Tab = "play" | "mine" | "league";
@@ -77,6 +77,10 @@ export function ScoreboardScreen() {
   const { user, isPending } = useCurrentUserState();
   const [tab, setTab] = useState<Tab>("play");
   const t = useT();
+
+  useEffect(() => {
+    bootSocial();
+  }, []);
 
   return (
     <div className="safe-pad harbour-grain compass-wash relative flex min-h-dvh w-full min-w-0 max-w-full flex-col overflow-x-hidden bg-bg text-fg">
