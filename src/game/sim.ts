@@ -524,6 +524,19 @@ function pushHonour(s, honour) {
   return { ...s, honours: [honour, ...(s.honours ?? [])].slice(0, 24) };
 }
 
+export function grantPlaque(s, honour, cash = 0, rep = 0) {
+  if (!s || s.phase === "title") return s;
+  let next = {
+    ...s,
+    cash: s.cash + cash,
+    reputation: Math.max(5, Math.min(100, (s.reputation ?? 55) + rep)),
+  };
+  next = pushHonour(next, honour);
+  if (honour.kind === "daily") log(next, "log.award.daily", { n: money(cash) });
+  else if (honour.kind === "challenge") log(next, "log.award.challenge", { n: money(cash) });
+  return next;
+}
+
 export function greenGrant(s) {
   const hulls = (s.fleet ?? []).filter((sh) => sh.charter !== "in");
   if (!hulls.length) return 0;

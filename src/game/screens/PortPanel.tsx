@@ -46,6 +46,10 @@ import { useGame } from "../store";
 import { HeatMeter } from "./HeatMeter";
 import { heatBand } from "../court";
 import type { Lot, Ship, Tab } from "../types";
+import { honourLabel } from "../honour";
+import { liveSnapshot, useSocial } from "../social/store";
+import { LineCard } from "./LineCard";
+import { TodayStrip } from "./SocialDesk";
 
 function lotKind(l: Lot, t: (k: MsgKey) => string) {
   return t(`cargo.${l.kind}` as MsgKey);
@@ -1084,15 +1088,6 @@ function CharterTab() {
   );
 }
 
-function honourLabel(h: { kind: string; brand?: string; n?: number }, t: (k: MsgKey, v?: Record<string, string | number>) => string) {
-  if (h.kind === "brand") return t("honour.brand", { brand: h.brand ?? "OEM" });
-  if (h.kind === "green") return t("honour.green");
-  if (h.kind === "streak") return t("honour.streak", { n: h.n ?? 0 });
-  if (h.kind === "ceu") return t("honour.ceu", { n: h.n ?? 0 });
-  if (h.kind === "ice") return t("honour.ice");
-  return t("honour.brand", { brand: "OEM" });
-}
-
 function LogTab() {
   const log = useGame((g) => g.state.log);
   const news = useGame((g) => g.state.news);
@@ -1104,8 +1099,14 @@ function LogTab() {
   const ship = useGame((g) => activeShip(g.state));
   const greyCeu = ship?.hold.filter((l) => l.grey).reduce((a, l) => a + l.ceu, 0) ?? 0;
   const t = useT();
+  const setDesk = useSocial((s) => s.setDesk);
+  const handle = useSocial((s) => s.blob.selfHandle);
+  const state = useGame((g) => g.state);
+  const snap = liveSnapshot(state, handle || state.company || state.captain || t("auth.captain"));
   return (
     <div className="space-y-3">
+      <TodayStrip onOpen={() => setDesk(true, "today")} />
+      {snap ? <LineCard snap={snap} mine compact /> : null}
       <div className="rounded-md border border-warn/30 bg-warn/10 px-3 py-2">
         <p className="text-[10px] uppercase tracking-wider text-warn">{t("heat.title")}</p>
         <div className="mt-2">

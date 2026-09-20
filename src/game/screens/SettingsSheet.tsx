@@ -12,6 +12,8 @@ import { createLeague, joinLeague, listMyLeagues, type LeagueSummary } from "../
 import { continueTesting, purchase, restore, shouldOfferContinueTesting, useIap } from "@/lib/iap";
 import { useGame } from "../store";
 import { OfficialList } from "./OfficialTournaments";
+import { TodayStrip } from "./SocialDesk";
+import { useSocial } from "../social/store";
 
 const DURS = [7, 30, 60, 0] as const;
 
@@ -173,6 +175,27 @@ export function SettingsSheet() {
               >
                 {t("auth.board")}
               </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  persistCareer();
+                  useSocial.getState().setDesk(true, "today");
+                  setSettings(false);
+                }}
+                className="flex min-h-11 items-center rounded-md border border-border px-3 text-left text-sm text-muted hover:text-fg"
+              >
+                {t("set.desk")}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  useSocial.getState().setGuide(true, 0);
+                  setSettings(false);
+                }}
+                className="flex min-h-11 items-center rounded-md border border-border px-3 text-left text-sm text-muted hover:text-fg"
+              >
+                {t("set.guide")}
+              </button>
               <button
                 type="button"
                 onClick={() => setAboutOpen((v) => !v)}
@@ -375,6 +398,9 @@ function TourneyBlock({ signedIn, pending }: { signedIn: boolean; pending: boole
 
       <div className="mt-4">
         <OfficialList compact signedIn={signedIn} pending={pending} />
+      </div>
+      <div className="mt-3">
+        <TodayStrip onOpen={() => useSocial.getState().setDesk(true, "today")} />
       </div>
 
       {pending ? <p className="mt-3 text-sm text-muted">{t("board.fetchLeagues")}</p> : null}

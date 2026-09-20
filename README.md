@@ -20,6 +20,8 @@ npm run preview
 
 Auth (email/password + optional Google/X) and the scoreboard need a database in production (`DATABASE_URL`). Local preview uses PGLite.
 
+Career play (fleet, honours, daily desk, friend challenges) is stored on-device. House tournaments and private friend leagues stay on the server. Lightweight challenge invite codes are local until a friends API is wired — extension point: `src/game/social/accounts.ts`.
+
 ## App Store (iOS)
 
 Capacitor wraps the **bundled** web game (not a remote-only WebView). See

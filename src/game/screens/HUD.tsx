@@ -4,6 +4,8 @@ import { activeLeg, activeShip, remainingCeu, destSummary, burnPerNm, co2PerNm }
 import { portName } from "../data/ports";
 import { useGame } from "../store";
 import { HeatMeter } from "./HeatMeter";
+import { completedCount } from "../social/progress";
+import { useSocial } from "../social/store";
 
 export function HUD() {
   const s = useGame((g) => g.state);
@@ -11,6 +13,9 @@ export function HUD() {
   const leg = activeLeg(s);
   const t = useT();
   const etsEst = Math.round(s.etsAcc * 80);
+  const daily = useSocial((g) => g.blob.daily);
+  const setDesk = useSocial((g) => g.setDesk);
+  const deskN = daily ? completedCount(daily.slots) : 0;
   return (
     <header className="hud-bar">
       <p className="max-w-44 truncate font-display text-[0.95rem] tracking-wide text-brass" title={s.company || s.captain || t("brand.short")}>
@@ -61,6 +66,15 @@ export function HUD() {
         <p className="hud-stat hidden max-w-40 truncate tabular-nums text-accent sm:inline-flex" title={(s.preferred ?? []).join(", ")}>
           {t("hud.preferred", { n: s.preferred.length })}
         </p>
+      ) : null}
+      {daily ? (
+        <button
+          type="button"
+          onClick={() => setDesk(true, "today")}
+          className="hud-stat hidden text-accent hover:border-brass/40 sm:inline-flex"
+        >
+          {t("daily.progress", { n: deskN, of: daily.slots.length })}
+        </button>
       ) : null}
       {s.fleet.length > 1 ? (
         <p className="hud-stat hidden tabular-nums text-muted sm:inline-flex">
