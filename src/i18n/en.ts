@@ -1144,6 +1144,23 @@ export const en = {
   "log.ev.cookVent": "Ventilated the galley. The chili was a war crime, but the ship is intact.",
   "log.ev.cookFire": "The fire alarm was not crying wolf. Galley and paintwork.",
   "log.ev.cookOk": "The chili stood down. The crew did not.",
+
+  "wreck.skip": "Skip",
+  "wreck.impact": "IMPACT",
+  "wreck.kicker": "WRECK REPORT",
+  "wreck.lost.title": "Ah well. She's on the bottom.",
+  "wreck.lost.body":
+    "That meeting was unplanned. M/V {name} is lost. The harbour will send a bill. The harbour always does.",
+  "wreck.lost.saldo": "Balance",
+  "wreck.lost.replacement": "A replacement hull",
+  "wreck.lost.buy": "Buy a new ship ({price})",
+  "wreck.lost.buyHint": "The yard still answers the phone. Optimism is a line item.",
+  "wreck.lost.continue": "Log it and carry on",
+  "wreck.broke.title": "You are bankrupt.",
+  "wreck.broke.body":
+    "No hull left, and the account cannot cover a replacement. The clerk has already found the stamp.",
+  "wreck.broke.restart": "Start over",
+  "wreck.broke.score": "See score",
 } as const;
 
 export type MsgKey = keyof typeof en;

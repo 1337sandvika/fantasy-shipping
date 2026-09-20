@@ -38,7 +38,8 @@ import {
   settleCourt as settleCourtSim,
   grantPlaque,
 } from "./sim";
-import { sinkHelm, resolveWreck } from "./wreck";
+import { sinkHelm, resolveWreck, type WreckIntent } from "./wreck";
+import type { HelmCrashCause } from "./helm";
 import { persist, loadSave, hasSaveFlag, clearSave } from "./save";
 import { blip, chime, foghorn } from "./audio";
 import { activeShip, bunkerPlanFor, fleetHasBarge, fleetValue } from "./fleet";
@@ -91,8 +92,8 @@ type Store = {
   hirePilot: () => void;
   finishHelm: () => void;
   scrapeHelm: () => void;
-  sinkHelm: () => void;
-  resolveWreck: () => void;
+  sinkHelm: (cause?: HelmCrashCause) => void;
+  resolveWreck: (intent?: WreckIntent) => void;
   setAutoPilot: (v: boolean) => void;
   hireCounsel: (tier: 0 | 1 | 2) => void;
   lockThrow: (x: number, y: number) => void;
@@ -345,18 +346,19 @@ export const useGame = create<Store>((set, get) => ({
     persist(state);
     set({ state });
   },
-  sinkHelm: () => {
-    const state = sinkHelm(get().state);
+  sinkHelm: (cause) => {
+    const state = sinkHelm(get().state, cause);
     persist(state);
     set({ state });
     foghorn();
   },
-  resolveWreck: () => {
-    const state = resolveWreck(get().state);
+  resolveWreck: (intent) => {
+    const state = resolveWreck(get().state, intent);
     persist(state);
     const ui = get().ui;
     set({ state, ui: { ...ui, tempo: 0 } });
     if (state.phase === "end" && state.endKind === "broke") {
+      stash(state);
       foghorn();
     }
   },

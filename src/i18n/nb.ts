@@ -1136,4 +1136,21 @@ export const nb: Record<MsgKey, string> = {
   "log.ev.cookVent": "Ventilerte byssa. Chilien var en krigsforbrytelse, men skipet står.",
   "log.ev.cookFire": "Brannalarmen ulte ikke forgjeves. Bysse og maling.",
   "log.ev.cookOk": "Chilien trakk seg. Mannskapet gjorde det ikke.",
+
+  "wreck.skip": "Hopp over",
+  "wreck.impact": "SAMMENSTØT",
+  "wreck.kicker": "VRAKRAPPORT",
+  "wreck.lost.title": "Nå ja. Skuta har gått på bunnen.",
+  "wreck.lost.body":
+    "Sammenstøtet var ikke planlagt. M/V {name} er tapt. Havna sender regning. Havna gjør alltid det.",
+  "wreck.lost.saldo": "Saldo",
+  "wreck.lost.replacement": "Et erstatningsskrog",
+  "wreck.lost.buy": "Kjøp nytt skip ({price})",
+  "wreck.lost.buyHint": "Verftet tar fortsatt telefonen. Optimisme er en post i regnskapet.",
+  "wreck.lost.continue": "Før det i loggen",
+  "wreck.broke.title": "Du er gått konkurs.",
+  "wreck.broke.body":
+    "Ingen skute igjen, og kassen dekker ikke et nytt skip. Ekspeditøren har allerede funnet stempelet.",
+  "wreck.broke.restart": "Start på nytt",
+  "wreck.broke.score": "Se score",
 };

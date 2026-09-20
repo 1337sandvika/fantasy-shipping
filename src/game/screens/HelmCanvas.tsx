@@ -6,7 +6,6 @@ import { actionsFromKeys, goalOf, helmWon, makeHarbor, spawnCraft, stepCraft } f
 
 const GAME_KEYS = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"]);
 const SHIP_IMG = shipTopArt();
-const SINK_IMG = "https://palm-river-olive-field.grok.me/game/helm/sink.jpg";
 const WATER = ["#2a7480", "#1f5f6a", "#2d6e78"];
 const LAND = ["#4a7a3e", "#3e6b48", "#5a6a42", "#4a5a3a"];
 const ROOF = ["#c45c6a", "#d4a84b", "#4f8a9c", "#7a5c48", "#8b8b78", "#4f7a62", "#9a6b4a", "#6a6a8a"];
@@ -27,7 +26,6 @@ export function HelmCanvas({ helmKind, portId, ship, onWin, onCrash, onHire }) {
   const winRef = useRef(onWin);
   const crashRef = useRef(onCrash);
   const imgs = useRef({ ship: null, boat: null });
-  const [sinking, setSinking] = useState(false);
   const [hud, setHud] = useState({ speed: 0, heading: 0, throttle: 0, steer: 0, dist: 0, layout: "straight" });
   winRef.current = onWin;
   crashRef.current = onCrash;
@@ -46,7 +44,6 @@ export function HelmCanvas({ helmKind, portId, ship, onWin, onCrash, onHire }) {
     craftRef.current = spawnCraft(helmKind, ship, harbor);
     done.current = false;
     levers.current = { throttle: 0, steer: 0 };
-    setSinking(false);
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -87,8 +84,7 @@ export function HelmCanvas({ helmKind, portId, ship, onWin, onCrash, onHire }) {
           if (out.harbor) harborRef.current = out.harbor;
           if (out.hit) {
             done.current = true;
-            if (out.hit === "sink") setSinking(true);
-            crashRef.current(out.hit);
+            crashRef.current(out.hit, out.cause);
             break;
           }
           if (helmWon(out.craft, helmKind, harborRef.current)) {
@@ -117,16 +113,6 @@ export function HelmCanvas({ helmKind, portId, ship, onWin, onCrash, onHire }) {
       delete window.__controlsTest;
     };
   }, [helmKind, portId, ship.ceu, ship.condition, ship.name]);
-
-  if (sinking) {
-    return (
-      <div className="relative min-h-0 flex-1 overflow-hidden bg-bg">
-        <img src={SINK_IMG} alt="" className="absolute inset-0 h-full w-full object-cover" draggable={false} />
-        <p className="absolute left-1/2 top-10 -translate-x-1/2 animate-pulse rounded-md border border-danger bg-danger/85 px-5 py-2 font-display text-lg tracking-[0.35em] text-fg">{t("helm.alarm")}</p>
-        <p className="absolute bottom-8 left-0 right-0 text-center font-display text-xl text-fg">M/V {ship.name}</p>
-      </div>
-    );
-  }
 
   const gears = [
     { v: -1, key: "helm.fullAstern" },
