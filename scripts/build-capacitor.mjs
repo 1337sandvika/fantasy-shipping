@@ -106,6 +106,7 @@ async function main() {
   });
 
   console.log(`[build-capacitor] API base: ${env.VITE_API_BASE_URL}`);
+  await run("node", ["scripts/patch-native-purchases-ipad.mjs"], env);
   await run("npx", ["vite", "build", "--config", "vite.config.capacitor.ts"], env);
 
   const outputPublic = join(root, ".output", "public");

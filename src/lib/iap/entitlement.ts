@@ -6,6 +6,7 @@ import {
   shouldOfferContinueTesting,
   transactionGrantsUnlock,
   trialSnapshot,
+  type StoreChannel,
 } from "./access";
 import { ensureTrialStart, readTrialStart, readUnlockCache, resetTrialStart, writeUnlockCache } from "./persist";
 import {
@@ -27,6 +28,7 @@ export type IapState = {
   priceString: string | null;
   productTitle: string | null;
   billingSupported: boolean;
+  channel: StoreChannel;
   busy: boolean;
   error: string | null;
   note: string | null;
@@ -44,6 +46,7 @@ const idle: IapState = {
   priceString: null,
   productTitle: null,
   billingSupported: false,
+  channel: "unknown",
   busy: false,
   error: null,
   note: null,
@@ -106,27 +109,56 @@ async function doHydrate(): Promise<void> {
   try {
     const store = await queryStore();
     if (store.queried) writeUnlockCache(store.unlocked);
-    apply({
-      gating: true,
-      unlockedFromStore: store.queried ? store.unlocked : readUnlockCache(),
-      ready: true,
-      priceString: store.priceString,
-      productTitle: store.productTitle,
-      billingSupported: store.billingSupported,
-    });
+    applyStore(store);
   } catch {
-    useIap.setState({ ready: true });
+    useIap.setState({ ready: true, error: "load" });
   }
 
   void listenForUnlock(() => {
     writeUnlockCache(true);
-    apply({ gating: true, unlockedFromStore: true, ready: true, paywallOpen: false });
+    apply({
+      gating: true,
+      unlockedFromStore: true,
+      ready: true,
+      paywallOpen: false,
+      error: null,
+      note: "unlocked",
+    });
   });
+}
+
+function applyStore(store: Awaited<ReturnType<typeof queryStore>>): void {
+  if (store.queried) writeUnlockCache(store.unlocked);
+  const unlockedFromStore = store.queried ? store.unlocked : readUnlockCache();
+  apply({
+    gating: true,
+    unlockedFromStore,
+    ready: true,
+    priceString: store.priceString,
+    productTitle: store.productTitle,
+    billingSupported: store.billingSupported,
+    channel: store.channel,
+    error: unlockedFromStore || store.priceString ? null : "load",
+    note: null,
+  });
+}
+
+/** Re-query StoreKit. Used by the paywall Retry button and when the sheet opens. */
+export async function refreshStore(): Promise<void> {
+  const s = useIap.getState();
+  if (!s.gating || s.busy) return;
+  useIap.setState({ error: null, note: null });
+  try {
+    applyStore(await queryStore());
+  } catch {
+    useIap.setState({ ready: true, error: "load" });
+  }
 }
 
 export function openPaywall(): void {
   if (!useIap.getState().gating) return;
   useIap.setState({ paywallOpen: true, error: null, note: null });
+  void refreshStore();
 }
 
 export function closePaywall(): void {
@@ -152,10 +184,47 @@ export async function purchase(): Promise<PurchaseResult> {
   if (s.busy) return "fail";
   useIap.setState({ busy: true, error: null, note: null });
   try {
+    if (!s.priceString) {
+      try {
+        const store = await queryStore();
+        if (store.queried) writeUnlockCache(store.unlocked);
+        if (store.unlocked) {
+          apply({
+            gating: true,
+            unlockedFromStore: true,
+            ready: true,
+            busy: false,
+            priceString: store.priceString,
+            productTitle: store.productTitle,
+            channel: store.channel,
+            billingSupported: store.billingSupported,
+            note: "unlocked",
+            error: null,
+          });
+          return "ok";
+        }
+        useIap.setState({
+          ready: true,
+          priceString: store.priceString,
+          productTitle: store.productTitle,
+          channel: store.channel,
+          billingSupported: store.billingSupported,
+        });
+      } catch {
+        /* purchaseProduct fetches the SKU itself */
+      }
+    }
     const tx = await purchaseFullUnlock();
     if (transactionGrantsUnlock(tx)) {
       writeUnlockCache(true);
-      apply({ gating: true, unlockedFromStore: true, ready: true, busy: false, note: "unlocked" });
+      apply({
+        gating: true,
+        unlockedFromStore: true,
+        ready: true,
+        busy: false,
+        note: "unlocked",
+        error: null,
+      });
       return "ok";
     }
     const store = await queryStore();
@@ -167,6 +236,8 @@ export async function purchase(): Promise<PurchaseResult> {
       busy: false,
       priceString: store.priceString ?? s.priceString,
       productTitle: store.productTitle ?? s.productTitle,
+      channel: store.channel,
+      billingSupported: store.billingSupported,
       note: store.unlocked ? "unlocked" : null,
       error: store.unlocked ? null : "fail",
     });
@@ -225,6 +296,7 @@ export function continueTesting(now = Date.now()): boolean {
       isUnlocked: s.isUnlocked,
       priceString: s.priceString,
       error: s.error,
+      channel: s.channel,
     })
   ) {
     return false;

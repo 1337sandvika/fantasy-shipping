@@ -5,7 +5,10 @@
  * hit this hosted origin from `capacitor://localhost`. Sibling `*.grok.me`
  * apps are NOT reflected — that would reopen cookie riding.
  */
-import { isCapacitorOrigin } from "../../src/lib/capacitor-origins";
+import {
+  NATIVE_CLIENT_HEADER,
+  corsAllowOrigin,
+} from "../../src/lib/capacitor-origins";
 
 interface CorsEvent {
   url: URL;
@@ -18,7 +21,8 @@ function corsHeaders(origin: string): Record<string, string> {
     "access-control-allow-credentials": "true",
     "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
     "access-control-allow-headers":
-      "Authorization,Content-Type,X-Requested-With,Better-Auth-Cookie",
+      "Authorization,Content-Type,X-Requested-With,Better-Auth-Cookie,X-Fantasy-Shipping-Client",
+    "access-control-expose-headers": "set-auth-token",
     "access-control-max-age": "86400",
     vary: "Origin",
   };
@@ -40,15 +44,16 @@ export default async function capacitorCorsMiddleware(
   event: CorsEvent,
   next: () => unknown | Promise<unknown>,
 ): Promise<unknown> {
-  const origin = event.req.headers.get("origin") ?? "";
-  if (!isCapacitorOrigin(origin)) return next();
+  const origin = event.req.headers.get("origin");
+  const allow = corsAllowOrigin(origin, event.req.headers.get(NATIVE_CLIENT_HEADER));
+  if (!allow) return next();
 
   const method = (event.req.method ?? "GET").toUpperCase();
   if (method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders(origin) });
+    return new Response(null, { status: 204, headers: corsHeaders(allow) });
   }
 
   const result = await next();
-  if (result instanceof Response) return applyCors(result, origin);
+  if (result instanceof Response) return applyCors(result, allow);
   return result;
 }

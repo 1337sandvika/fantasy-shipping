@@ -17,13 +17,25 @@ export function readApiBaseUrl(): string {
 }
 
 export function isNativeClientOrigin(origin: string | undefined): boolean {
-  if (!origin) return false;
+  if (!origin || origin === "null") return false;
   return (
     origin.startsWith("capacitor:") ||
     origin.startsWith("ionic:") ||
     origin === "https://localhost" ||
     origin === "http://localhost"
   );
+}
+
+/**
+ * True inside the Capacitor binary. `location.origin` is the string `"null"`
+ * for the opaque `capacitor://` scheme, so origin matching alone misses iOS.
+ */
+export function isNativeApp(): boolean {
+  if (typeof window === "undefined") return false;
+  if (import.meta.env.VITE_NATIVE === "1") return true;
+  if (isNativeClientOrigin(window.location.origin)) return true;
+  const protocol = window.location.protocol;
+  return protocol === "capacitor:" || protocol === "ionic:";
 }
 
 /** Paths that must hit the hosted Start/Better Auth backend from the native app. */

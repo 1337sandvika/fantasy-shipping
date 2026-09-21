@@ -61,7 +61,10 @@ export const en = {
   "iap.none": "No purchase found for this Apple ID.",
   "iap.fail": "Could not complete the purchase. Try again, or Restore Purchases.",
   "iap.unavailable": "The unlock product is not available in the App Store yet.",
-  "iap.pricePending": "Price comes from the App Store once the product is live.",
+  "iap.pricePending": "Contacting the App Store for the price…",
+  "iap.loadFailed":
+    "The App Store did not return a price. You can still try the purchase — Apple’s sheet shows the live price — or tap Retry. Restore Purchases if this Apple ID already bought the unlock.",
+  "iap.retry": "Retry",
   "iap.continueTesting": "Continue testing (free)",
   "iap.continueTestingHint":
     "The App Store product is not live yet. Start another 14-day trial — your career save stays.",
@@ -91,6 +94,17 @@ export const en = {
   "login.badCreds": "Wrong email or password.",
   "login.signupFail": "Could not create the account.",
   "login.guest": "Play as guest",
+  "login.optional":
+    "An account is optional. The career works as a guest on this device. Create an account to post scores and join tournaments.",
+  "login.passwordHint": "At least 8 characters.",
+  "login.invalidEmail": "Enter a valid email address.",
+  "login.shortPassword": "Use at least 8 characters.",
+  "login.network": "Can’t reach the account server. Check the connection and try again.",
+  "login.timeout": "The account server took too long. Try again.",
+  "login.origin": "This device was blocked from creating an account. Try again, or play as a guest.",
+  "login.exists": "That email already has an account. Sign in instead.",
+  "login.sessionMissing":
+    "The account was saved, but sign-in did not finish. Sign in with the same email and password.",
 
   "privacy.title": "Privacy",
   "privacy.kicker": "FANTASY SHIPPING · PRIVACY",

@@ -6,6 +6,8 @@ export {
   isUserCancel,
   isProductUnavailable,
   shouldOfferContinueTesting,
+  normalizeStoreChannel,
+  allowsMissingProductBypass,
 } from "./access";
 export {
   useIap,
@@ -16,7 +18,9 @@ export {
   requirePlay,
   purchase,
   restore,
+  refreshStore,
   continueTesting,
   iapCanPlay,
 } from "./entitlement";
 export type { IapState, PurchaseResult } from "./entitlement";
+export type { StoreChannel } from "./access";

@@ -8,3 +8,14 @@
  * Do NOT edit `server.ts` for this — that file is frozen pre-wired config.
  */
 export const emailAndPasswordEnabled = true;
+
+/**
+ * Immediate session on sign-up (no email round-trip). App Review has no inbox
+ * we can count on, and the native shell stores the bearer token from this response.
+ */
+export const emailAndPassword = {
+  enabled: true,
+  autoSignIn: true,
+  minPasswordLength: 8,
+  maxPasswordLength: 128,
+} as const;

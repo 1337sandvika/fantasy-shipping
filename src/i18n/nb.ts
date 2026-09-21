@@ -58,7 +58,10 @@ export const nb: Record<MsgKey, string> = {
   "iap.none": "Fant ingen kjøp for denne Apple-ID-en.",
   "iap.fail": "Kjøpet kunne ikke gjennomføres. Prøv igjen, eller Gjenopprett kjøp.",
   "iap.unavailable": "Opplåsingsproduktet er ikke tilgjengelig i App Store ennå.",
-  "iap.pricePending": "Prisen kommer fra App Store når produktet er klart.",
+  "iap.pricePending": "Henter prisen fra App Store…",
+  "iap.loadFailed":
+    "App Store svarte ikke med en pris. Du kan likevel prøve kjøpet — Apples ark viser prisen — eller trykk Prøv igjen. Gjenopprett kjøp hvis denne Apple-ID-en allerede har låst opp.",
+  "iap.retry": "Prøv igjen",
   "iap.continueTesting": "Fortsett testing (gratis)",
   "iap.continueTestingHint":
     "App Store-produktet er ikke live ennå. Start en ny 14-dagers prøveperiode — karrierelagringen beholdes.",
@@ -87,6 +90,17 @@ export const nb: Record<MsgKey, string> = {
   "login.badCreds": "Feil e-post eller passord.",
   "login.signupFail": "Kunne ikke opprette kontoen.",
   "login.guest": "Spill som gjest",
+  "login.optional":
+    "Konto er valgfritt. Karrieren virker som gjest på denne enheten. Opprett konto for å sende inn poeng og bli med i turneringer.",
+  "login.passwordHint": "Minst 8 tegn.",
+  "login.invalidEmail": "Skriv inn en gyldig e-postadresse.",
+  "login.shortPassword": "Bruk minst 8 tegn.",
+  "login.network": "Får ikke kontakt med kontoserveren. Sjekk tilkoblingen og prøv igjen.",
+  "login.timeout": "Kontoserveren svarte ikke i tide. Prøv igjen.",
+  "login.origin": "Denne enheten ble stoppet fra å opprette konto. Prøv igjen, eller spill som gjest.",
+  "login.exists": "Den e-posten har allerede en konto. Logg inn i stedet.",
+  "login.sessionMissing":
+    "Kontoen ble lagret, men innloggingen ble ikke fullført. Logg inn med samme e-post og passord.",
   "privacy.title": "Personvern",
   "privacy.kicker": "FANTASY SHIPPING · PERSONVERN",
   "privacy.updated": "September 2026",

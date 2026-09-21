@@ -1,6 +1,12 @@
 import type { PluginListenerHandle } from "@capacitor/core";
 import { FULL_UNLOCK_PRODUCT_ID } from "./product";
-import { purchasesGrantUnlock, transactionGrantsUnlock, type StoreTransaction } from "./access";
+import {
+  normalizeStoreChannel,
+  purchasesGrantUnlock,
+  transactionGrantsUnlock,
+  type StoreChannel,
+  type StoreTransaction,
+} from "./access";
 
 export type StoreQuery = {
   unlocked: boolean;
@@ -8,7 +14,13 @@ export type StoreQuery = {
   billingSupported: boolean;
   priceString: string | null;
   productTitle: string | null;
+  channel: StoreChannel;
+  /** Set when the catalog request failed or returned no full-unlock product. */
+  loadError: string | null;
 };
+
+const PRODUCT_ATTEMPTS = 3;
+const PRODUCT_TIMEOUT_MS = 8_000;
 
 type NativePurchasesApi = {
   isBillingSupported: () => Promise<{ isBillingSupported: boolean }>;
@@ -25,6 +37,9 @@ type NativePurchasesApi = {
     productType?: string;
   }) => Promise<StoreTransaction>;
   restorePurchases: () => Promise<void>;
+  getAppTransaction?: () => Promise<{
+    appTransaction?: { environment?: string | null };
+  }>;
   addListener: (
     event: "transactionUpdated",
     fn: (tx: StoreTransaction) => void,
@@ -51,6 +66,26 @@ async function loadPlugin(): Promise<{
   return { NativePurchases: NativePurchases as unknown as NativePurchasesApi, PURCHASE_TYPE };
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("timeout")), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function queryStore(): Promise<StoreQuery> {
   const empty: StoreQuery = {
     unlocked: false,
@@ -58,6 +93,8 @@ export async function queryStore(): Promise<StoreQuery> {
     billingSupported: false,
     priceString: null,
     productTitle: null,
+    channel: "unknown",
+    loadError: "plugin",
   };
   try {
     const { NativePurchases, PURCHASE_TYPE } = await loadPlugin();
@@ -68,32 +105,63 @@ export async function queryStore(): Promise<StoreQuery> {
       billingSupported = false;
     }
 
-    let priceString: string | null = null;
-    let productTitle: string | null = null;
-    try {
-      const { products } = await NativePurchases.getProducts({
-        productIdentifiers: [FULL_UNLOCK_PRODUCT_ID],
-        productType: PURCHASE_TYPE.INAPP,
-      });
-      const product = products.find((p) => p.identifier === FULL_UNLOCK_PRODUCT_ID) ?? products[0];
-      if (product) {
-        priceString = product.priceString || null;
-        productTitle = product.title || null;
-      }
-    } catch {
-      /* product missing in Connect / StoreKit config */
-    }
+    const [catalog, channel, unlocked] = await Promise.all([
+      loadFullUnlockProduct(NativePurchases, PURCHASE_TYPE.INAPP),
+      readStoreChannel(NativePurchases),
+      withTimeout(readUnlockFromStore(NativePurchases, PURCHASE_TYPE.INAPP), 8_000).catch(() => ({
+        unlocked: false,
+        queried: false,
+      })),
+    ]);
 
-    const unlocked = await readUnlockFromStore(NativePurchases, PURCHASE_TYPE.INAPP);
     return {
       unlocked: unlocked.unlocked,
       queried: unlocked.queried,
       billingSupported,
-      priceString,
-      productTitle,
+      priceString: catalog.priceString,
+      productTitle: catalog.productTitle,
+      channel,
+      loadError: catalog.priceString ? null : catalog.loadError,
     };
+  } catch (err) {
+    return { ...empty, loadError: err instanceof Error ? err.message : "plugin" };
+  }
+}
+
+async function loadFullUnlockProduct(
+  NativePurchases: NativePurchasesApi,
+  productType: string,
+): Promise<{ priceString: string | null; productTitle: string | null; loadError: string | null }> {
+  let loadError: string | null = "empty-products";
+  for (let attempt = 0; attempt < PRODUCT_ATTEMPTS; attempt++) {
+    try {
+      const { products } = await withTimeout(
+        NativePurchases.getProducts({
+          productIdentifiers: [FULL_UNLOCK_PRODUCT_ID],
+          productType,
+        }),
+        PRODUCT_TIMEOUT_MS,
+      );
+      const product = products.find((p) => p.identifier === FULL_UNLOCK_PRODUCT_ID) ?? products[0];
+      const priceString = product?.priceString?.trim() || null;
+      const productTitle = product?.title?.trim() || null;
+      if (priceString) return { priceString, productTitle, loadError: null };
+      loadError = "empty-products";
+    } catch (err) {
+      loadError = err instanceof Error ? err.message : "product-query";
+    }
+    if (attempt < PRODUCT_ATTEMPTS - 1) await delay(450 * (attempt + 1));
+  }
+  return { priceString: null, productTitle: null, loadError };
+}
+
+async function readStoreChannel(NativePurchases: NativePurchasesApi): Promise<StoreChannel> {
+  if (!NativePurchases.getAppTransaction) return "unknown";
+  try {
+    const result = await withTimeout(NativePurchases.getAppTransaction(), 8_000);
+    return normalizeStoreChannel(result.appTransaction?.environment);
   } catch {
-    return empty;
+    return "unknown";
   }
 }
 

@@ -194,6 +194,18 @@ on each launch. The trial start timestamp is stored in the same WebView
 resets the trial; **Restore Purchases** restores a paid unlock on the same
 Apple ID.
 
+On iPad the purchase sheet is presented in the foreground `UIWindowScene`
+(`scripts/patch-native-purchases-ipad.mjs`, applied on `npm install` and
+`npm run build:ios`). A missing price shows **Retry** and still offers
+**Unlock** (Apple’s sheet carries the live price) plus **Restore Purchases**.
+**Continue testing (free)** stays TestFlight / Xcode only — it does not appear
+for production, or before StoreKit reports a sandbox channel.
+
+Account creation is email and password. The career does not require an
+account (guest play). The native shell sends `X-Fantasy-Shipping-Client` and
+keeps the Better Auth bearer token, because `capacitor://` often arrives as
+`Origin: null` and `__Host-` cookies do not stick in the WebView.
+
 Do not put Apple API keys, shared secrets, or `.p8` / `.p12` files in this repo.
 
 ### A. Paid Apps Agreement (once per developer account)
