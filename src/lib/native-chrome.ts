@@ -29,7 +29,7 @@ export async function bootNativeChrome(): Promise<void> {
 function lockNativeViewport(): void {
   if (typeof document === "undefined") return;
   const content =
-    "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover";
+    "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, interactive-widget=resizes-content";
   let meta = document.querySelector('meta[name="viewport"]');
   if (!meta) {
     meta = document.createElement("meta");

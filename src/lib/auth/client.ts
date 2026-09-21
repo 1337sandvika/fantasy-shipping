@@ -1,7 +1,8 @@
 import { genericOAuthClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { runPreSignInSignOut, runSignOut } from "../../../scripts/sign-out-plan.mjs";
-import { isNativeClientOrigin, readApiBaseUrl } from "../api-base";
+import { isNativeApp, readApiBaseUrl } from "../api-base";
+import { NATIVE_CLIENT_HEADER, NATIVE_CLIENT_VALUE } from "../capacitor-origins";
 import { GROK_PROVIDERS } from "./providers";
 
 const apiBaseUrl = readApiBaseUrl();
@@ -27,7 +28,15 @@ export const authClient = createAuthClient({
     onRequest(ctx) {
       const token = getBearerToken();
       if (token) ctx.headers.set("Authorization", `Bearer ${token}`);
+      if (isNativeApp()) ctx.headers.set(NATIVE_CLIENT_HEADER, NATIVE_CLIENT_VALUE);
       return ctx;
+    },
+    onSuccess(ctx) {
+      // Bearer plugin puts the session on this header, not in the JSON body.
+      // Cross-origin Capacitor cannot store the __Host- session cookie.
+      if (!isNativeApp()) return;
+      const token = ctx.response?.headers?.get?.("set-auth-token");
+      if (token) setBearerToken(token);
     },
   },
 });
@@ -46,7 +55,7 @@ const BEARER_KEY = "grok-auth.bearer-token";
 const NATIVE_BEARER_KEY = "fantasy-shipping.native-bearer";
 
 function onNativeClient(): boolean {
-  return typeof window !== "undefined" && isNativeClientOrigin(window.location.origin);
+  return isNativeApp();
 }
 
 /** The stored preview / native bearer token, or null. */

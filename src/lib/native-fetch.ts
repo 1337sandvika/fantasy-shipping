@@ -1,6 +1,12 @@
-import { isHostedApiPath, isNativeClientOrigin, readApiBaseUrl } from "./api-base";
+import { isHostedApiPath, isNativeApp, readApiBaseUrl } from "./api-base";
+import { NATIVE_CLIENT_HEADER, NATIVE_CLIENT_VALUE } from "./capacitor-origins";
 
 let installed = false;
+
+function stampNative(headers: Headers): Headers {
+  headers.set(NATIVE_CLIENT_HEADER, NATIVE_CLIENT_VALUE);
+  return headers;
+}
 
 function rewriteUrl(url: string, apiBase: string): string | null {
   let parsed: URL;
@@ -27,28 +33,20 @@ export function installNativeApiFetch(): void {
 
   const apiBase = readApiBaseUrl();
   if (!apiBase) return;
-  if (!isNativeClientOrigin(window.location.origin) && import.meta.env.VITE_NATIVE !== "1") {
-    return;
-  }
+  if (!isNativeApp()) return;
 
   installed = true;
   const original = window.fetch.bind(window);
 
   window.fetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    if (typeof input === "string") {
-      const next = rewriteUrl(input, apiBase);
+    if (typeof input === "string" || input instanceof URL) {
+      const raw = typeof input === "string" ? input : input.href;
+      const next = rewriteUrl(raw, apiBase);
       if (next) {
+        const headers = stampNative(new Headers(init?.headers));
         return original(next, {
           ...init,
-          credentials: init?.credentials ?? "omit",
-          mode: init?.mode ?? "cors",
-        });
-      }
-    } else if (input instanceof URL) {
-      const next = rewriteUrl(input.href, apiBase);
-      if (next) {
-        return original(next, {
-          ...init,
+          headers,
           credentials: init?.credentials ?? "omit",
           mode: init?.mode ?? "cors",
         });
@@ -56,7 +54,10 @@ export function installNativeApiFetch(): void {
     } else if (typeof Request !== "undefined" && input instanceof Request) {
       const next = rewriteUrl(input.url, apiBase);
       if (next) {
-        const headers = new Headers(input.headers);
+        const headers = stampNative(new Headers(input.headers));
+        if (init?.headers) {
+          new Headers(init.headers).forEach((value, key) => headers.set(key, value));
+        }
         const rewritten = new Request(next, {
           method: input.method,
           headers,
@@ -68,7 +69,7 @@ export function installNativeApiFetch(): void {
           integrity: input.integrity,
           signal: init?.signal ?? input.signal,
         });
-        return original(rewritten, init);
+        return original(rewritten);
       }
     }
     return original(input as RequestInfo, init);

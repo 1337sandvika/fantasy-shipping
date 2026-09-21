@@ -9,7 +9,7 @@ import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { cn } from "@/lib/utils";
 import { persist } from "../save";
 import { createLeague, joinLeague, listMyLeagues, type LeagueSummary } from "../score-api";
-import { continueTesting, purchase, restore, shouldOfferContinueTesting, useIap } from "@/lib/iap";
+import { continueTesting, purchase, refreshStore, restore, shouldOfferContinueTesting, useIap } from "@/lib/iap";
 import { useGame } from "../store";
 import { OfficialList } from "./OfficialTournaments";
 import { TodayStrip } from "./SocialDesk";
@@ -150,14 +150,25 @@ export function SettingsSheet() {
                 ) : null}
               </div>
             ) : (
-              <Link
-                to="/login"
-                search={{ next: "/" }}
-                onClick={persistCareer}
-                className="mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-md bg-accent px-3 text-sm font-medium text-accent-fg"
-              >
-                {t("auth.signIn")}
-              </Link>
+              <div className="mt-2 grid gap-2">
+                <Link
+                  to="/login"
+                  search={{ next: "/", mode: "up" }}
+                  onClick={persistCareer}
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-accent px-3 text-sm font-medium text-accent-fg"
+                >
+                  {t("login.create")}
+                </Link>
+                <Link
+                  to="/login"
+                  search={{ next: "/" }}
+                  onClick={persistCareer}
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border px-3 text-sm text-muted hover:text-fg"
+                >
+                  {t("auth.signIn")}
+                </Link>
+                <p className="text-xs text-subtle">{t("login.optional")}</p>
+              </div>
             )}
           </section>
 
@@ -245,7 +256,7 @@ export function SettingsSheet() {
 
 function IapBlock() {
   const t = useT();
-  const { gating, ready, isUnlocked, trialActive, trialDaysLeft, busy, error, note, priceString } =
+  const { gating, ready, isUnlocked, trialActive, trialDaysLeft, busy, error, note, priceString, channel } =
     useIap();
   if (!gating) return null;
   const priceLabel = priceString ? t("iap.unlock", { price: priceString }) : t("iap.unlockFallback");
@@ -255,7 +266,9 @@ function IapBlock() {
     isUnlocked,
     priceString,
     error,
+    channel,
   });
+  const missingPrice = ready && !priceString && !isUnlocked;
   return (
     <section className="mt-6">
       <p className="text-xs font-medium uppercase tracking-wider text-subtle">{t("iap.settings")}</p>
@@ -272,10 +285,18 @@ function IapBlock() {
       {error === "none" ? <p className="mt-2 text-sm text-warn">{t("iap.none")}</p> : null}
       {error === "fail" ? <p className="mt-2 text-sm text-danger">{t("iap.fail")}</p> : null}
       {error === "unavailable" ? <p className="mt-2 text-sm text-warn">{t("iap.unavailable")}</p> : null}
+      {missingPrice && error !== "unavailable" && error !== "fail" && error !== "none" ? (
+        <p className="mt-2 text-sm text-warn">{t("iap.loadFailed")}</p>
+      ) : null}
       <div className="mt-2 grid gap-1">
         {ready && !isUnlocked ? (
           <Button disabled={busy} onClick={() => void purchase()} className="w-full">
             {busy ? t("iap.buying") : priceLabel}
+          </Button>
+        ) : null}
+        {missingPrice ? (
+          <Button variant="secondary" disabled={busy} onClick={() => void refreshStore()} className="w-full">
+            {t("iap.retry")}
           </Button>
         ) : null}
         {offerTesting ? (

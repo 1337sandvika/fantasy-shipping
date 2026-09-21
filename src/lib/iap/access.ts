@@ -101,9 +101,36 @@ export function isProductUnavailable(err: unknown): boolean {
   ) {
     return true;
   }
-  return /product.+(not found|unavailable|invalid|missing)|invalid product|could not find.*product|no products?/i.test(
+  return /cannot find product|product not found|product.+(not found|unavailable|invalid|missing)|invalid product|could not find.*product|no products?|empty-products/i.test(
     blob,
   );
+}
+
+/**
+ * Where this binary is talking to StoreKit.
+ * - `sandbox`: TestFlight (and App Review, which uses the same sandbox)
+ * - `xcode`: local Products.storekit
+ * - `production`: App Store customers
+ * - `unknown`: AppTransaction has not resolved yet
+ */
+export type StoreChannel = "sandbox" | "production" | "xcode" | "unknown";
+
+export function normalizeStoreChannel(raw: string | null | undefined): StoreChannel {
+  const value = (raw ?? "").trim().toLowerCase();
+  if (value === "sandbox") return "sandbox";
+  if (value === "production") return "production";
+  if (value === "xcode") return "xcode";
+  return "unknown";
+}
+
+/**
+ * Free "continue testing" is only for builds where the SKU is expected to be
+ * absent: TestFlight sandbox and the Xcode StoreKit config. Production
+ * customers, and any launch where we have not confirmed a sandbox channel,
+ * must see the real purchase / retry / restore path instead of a free skip.
+ */
+export function allowsMissingProductBypass(channel: StoreChannel): boolean {
+  return channel === "sandbox" || channel === "xcode";
 }
 
 export type ContinueTestingInput = {
@@ -112,15 +139,17 @@ export type ContinueTestingInput = {
   isUnlocked: boolean;
   priceString: string | null;
   error: string | null;
+  channel: StoreChannel;
 };
 
 /**
- * Native iOS only, and only while the full-unlock SKU has no live price
- * (Waiting for Review / TestFlight) or a purchase already failed as missing.
- * Production users with a live product never see this.
+ * Native iOS only, and only on TestFlight / Xcode while the full-unlock SKU
+ * has no live price or a purchase already failed as missing.
+ * App Review and production keep the purchase button, retry, and restore.
  */
 export function shouldOfferContinueTesting(input: ContinueTestingInput): boolean {
   if (!input.gating || !input.ready || input.isUnlocked) return false;
+  if (!allowsMissingProductBypass(input.channel)) return false;
   if (!input.priceString) return true;
   return input.error === "unavailable";
 }

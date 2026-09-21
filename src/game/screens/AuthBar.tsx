@@ -62,13 +62,22 @@ export function AuthBar({ extra, showTable = true }: { extra?: ReactNode; showTa
           ) : null}
         </div>
       ) : (
-        <Link
-          to="/login"
-          search={{ next: "/" }}
-          className="inline-flex min-h-11 items-center rounded-md bg-accent px-3 text-xs font-medium text-accent-fg shadow-[inset_0_1px_0_rgb(255_255_255/0.2)]"
-        >
-          {t("auth.signIn")}
-        </Link>
+        <>
+          <Link
+            to="/login"
+            search={{ next: "/", mode: "up" }}
+            className="inline-flex min-h-11 items-center rounded-md border border-border bg-bg-elevated/80 px-3 text-xs font-medium text-muted hover:text-fg"
+          >
+            {t("login.create")}
+          </Link>
+          <Link
+            to="/login"
+            search={{ next: "/" }}
+            className="inline-flex min-h-11 items-center rounded-md bg-accent px-3 text-xs font-medium text-accent-fg shadow-[inset_0_1px_0_rgb(255_255_255/0.2)]"
+          >
+            {t("auth.signIn")}
+          </Link>
+        </>
       )}
     </div>
   );

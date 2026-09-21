@@ -138,13 +138,22 @@ function NeedAccount({ title, body }: { title: string; body: string }) {
     <div className="panel p-6">
       <h2 className="font-display text-xl">{title}</h2>
       <p className="mt-2 text-sm leading-relaxed text-muted">{body}</p>
-      <Link
-        to="/login"
-        search={{ next: "/scoreboard" }}
-        className="mt-5 inline-flex min-h-11 items-center rounded-md bg-accent px-4 text-sm font-medium text-accent-fg shadow-[inset_0_1px_0_rgb(255_255_255/0.2)]"
-      >
-        {t("auth.signIn")}
-      </Link>
+      <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+        <Link
+          to="/login"
+          search={{ next: "/scoreboard", mode: "up" }}
+          className="inline-flex min-h-11 items-center justify-center rounded-md bg-accent px-4 text-sm font-medium text-accent-fg shadow-[inset_0_1px_0_rgb(255_255_255/0.2)]"
+        >
+          {t("login.create")}
+        </Link>
+        <Link
+          to="/login"
+          search={{ next: "/scoreboard" }}
+          className="inline-flex min-h-11 items-center justify-center rounded-md border border-border px-4 text-sm font-medium"
+        >
+          {t("auth.signIn")}
+        </Link>
+      </div>
     </div>
   );
 }

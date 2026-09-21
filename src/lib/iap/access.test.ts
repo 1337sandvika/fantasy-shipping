@@ -2,8 +2,10 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   deriveAccess,
+  allowsMissingProductBypass,
   isProductUnavailable,
   isUserCancel,
+  normalizeStoreChannel,
   purchasesGrantUnlock,
   shouldOfferContinueTesting,
   transactionGrantsUnlock,
@@ -146,8 +148,26 @@ describe("isUserCancel", () => {
 describe("isProductUnavailable", () => {
   it("detects missing / waiting-for-review StoreKit products", () => {
     assert.equal(isProductUnavailable(new Error("Could not find product matching identifier")), true);
+    assert.equal(isProductUnavailable(new Error("Cannot find product for id com.fantasyshipping.app.full_unlock")), true);
     assert.equal(isProductUnavailable({ code: "productNotAvailable" }), true);
     assert.equal(isProductUnavailable(new Error("network timeout")), false);
+  });
+});
+
+describe("store channel", () => {
+  it("normalizes AppTransaction environment strings", () => {
+    assert.equal(normalizeStoreChannel("Sandbox"), "sandbox");
+    assert.equal(normalizeStoreChannel("Production"), "production");
+    assert.equal(normalizeStoreChannel("Xcode"), "xcode");
+    assert.equal(normalizeStoreChannel(""), "unknown");
+    assert.equal(normalizeStoreChannel(undefined), "unknown");
+  });
+
+  it("allows the free bypass only for TestFlight sandbox and Xcode", () => {
+    assert.equal(allowsMissingProductBypass("sandbox"), true);
+    assert.equal(allowsMissingProductBypass("xcode"), true);
+    assert.equal(allowsMissingProductBypass("production"), false);
+    assert.equal(allowsMissingProductBypass("unknown"), false);
   });
 });
 
@@ -158,13 +178,14 @@ describe("shouldOfferContinueTesting", () => {
     isUnlocked: false,
     priceString: null as string | null,
     error: null as string | null,
+    channel: "sandbox" as const,
   };
 
-  it("shows for native iOS when the product price failed to load", () => {
+  it("shows on TestFlight when the product price failed to load", () => {
     assert.equal(shouldOfferContinueTesting(base), true);
   });
 
-  it("shows when a purchase failed because the product is missing", () => {
+  it("shows on TestFlight when a purchase failed because the product is missing", () => {
     assert.equal(
       shouldOfferContinueTesting({ ...base, priceString: "$4.99", error: "unavailable" }),
       true,
@@ -173,6 +194,15 @@ describe("shouldOfferContinueTesting", () => {
 
   it("hides when the live App Store product loaded a price", () => {
     assert.equal(shouldOfferContinueTesting({ ...base, priceString: "$4.99" }), false);
+  });
+
+  it("hides on production and before the channel is known, even with a blank price", () => {
+    assert.equal(shouldOfferContinueTesting({ ...base, channel: "production" }), false);
+    assert.equal(shouldOfferContinueTesting({ ...base, channel: "unknown" }), false);
+    assert.equal(
+      shouldOfferContinueTesting({ ...base, channel: "production", priceString: "$4.99", error: "unavailable" }),
+      false,
+    );
   });
 
   it("hides on web (gating off) and before StoreKit is ready", () => {
