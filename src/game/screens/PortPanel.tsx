@@ -35,6 +35,7 @@ import {
   bunkerPlanFor,
   bargeQuote,
   bargeLeft,
+  isStranded,
   drydockQuote,
   drydockLeft,
   nearestYard,
@@ -303,7 +304,7 @@ function DistressCard() {
           </div>
         </div>
       ) : null}
-      {tight ? (
+      {isStranded(s) ? (
         <div className="mt-3 border-t border-danger/20 pt-3">
           <Button variant="secondary" className="w-full border-danger/40 text-danger" onClick={fileBankruptcy}>
             {t("end.file")}

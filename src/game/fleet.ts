@@ -55,8 +55,19 @@ export function hullValue(ship: Ship): number {
   return replacementValue(ship);
 }
 
-export function fleetValue(s: GameState): number {
+export function fleetValue(s: Pick<GameState, "fleet">): number {
   return s.fleet.reduce((a, sh) => a + hullValue(sh), 0);
+}
+
+/** Cash plus owned-hull book value. This is the Formue figure on the end screen. */
+export function fortune(s: Pick<GameState, "cash" | "fleet">): number {
+  return s.cash + fleetValue(s);
+}
+
+/** 0.15% per game day, pro-rated. A fraction of a day must not accrue a full day. */
+export function accrueDebt(debt: number, days: number): number {
+  if (!(debt > 0) || !(days > 0)) return debt > 0 ? debt : 0;
+  return Math.round(debt * Math.pow(1.0015, days));
 }
 
 export function bunkerTonPrice(ship: Pick<Ship, "fuel" | "port">): number {
@@ -170,12 +181,18 @@ export function cashTight(s: GameState, ship: Ship | null): boolean {
   return need >= 10 * bunkerTonPrice(ship) && s.cash < need;
 }
 
-/** True when no owned hull can bunker or sail, and the desk will not lend. */
+/**
+ * True when nothing left can sail or bunker, the desk will not lend,
+ * and Formue cannot buy a replacement hull.
+ * A fortune that covers the yard is not bankruptcy — same number the end screen shows.
+ */
 export function isStranded(s: GameState): boolean {
   if (s.phase === "title" || s.phase === "end") return false;
+  if (fortune(s) >= cheapestBuyPrice(s)) return false;
+  if (fleetHasBarge(s)) return false;
   const debtNet = s.cash - (s.debt ?? 0);
   const working = s.fleet.filter((sh) => sh.charter !== "out");
-  if (!working.length) return debtNet < -4e5;
+  if (!working.length) return debtNet < -4e5 && s.cash < cheapestBuyPrice(s);
   if ((s.legs ?? []).some((v) => working.some((sh) => sh.id === v.shipId))) return false;
   if (canTakeLoan(s)) return false;
   if (working.some((sh) => sh.hold.some((l) => l.dest === sh.port))) return false;
@@ -184,6 +201,7 @@ export function isStranded(s: GameState): boolean {
 
 function canAffordMinBunker(s: GameState, ship: Ship): boolean {
   if (ship.atSea) return false;
+  if (ship.barge && s.day < ship.barge.eta) return true;
   const port = getPort(ship.port);
   const room = Math.max(0, ship.bunkerCap - ship.bunkers);
   if (room < 10) return true;

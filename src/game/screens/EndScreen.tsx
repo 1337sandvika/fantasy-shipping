@@ -6,7 +6,7 @@ import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { requirePlay, useIap } from "@/lib/iap";
 import { useT, type MsgKey } from "@/i18n";
 import { money, qty } from "../format";
-import { fleetValue } from "../fleet";
+import { fortune } from "../fleet";
 import { careerPoints } from "../score";
 import { clearPendingScore, readPendingScore } from "../pending-score";
 import { submitCareer } from "../score-api";
@@ -33,11 +33,12 @@ export function EndScreen() {
   const posted = useRef(false);
   const horned = useRef(false);
   const [post, setPost] = useState<"idle" | "sending" | "ok" | "fail">("idle");
+  const [heroOk, setHeroOk] = useState(true);
   const t = useT();
   const paywallOpen = useIap((s) => s.paywallOpen);
   const kind = s.endKind ?? "retired";
   const hard = kind === "broke";
-  const nw = s.cash + fleetValue(s);
+  const nw = fortune(s);
   const pts = careerPoints({
     netWorth: nw,
     deliveredCeu: s.deliveredCeu,
@@ -81,11 +82,14 @@ export function EndScreen() {
     <div className="safe-pad harbour-grain relative flex min-h-dvh w-full min-w-0 max-w-full flex-col overflow-x-hidden bg-bg text-fg">
       {hard ? (
         <div className="relative isolate overflow-hidden border-b border-danger/40">
-          <img
-            src="/game/events/broke.jpg"
-            alt=""
-            className="absolute inset-0 h-full w-full object-cover object-[center_40%]"
-          />
+          {heroOk ? (
+            <img
+              src="/game/events/storm.jpg"
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover object-[center_40%]"
+              onError={() => setHeroOk(false)}
+            />
+          ) : null}
           <div className="absolute inset-0 bg-linear-to-t from-bg via-bg/70 to-bg/20" />
           <div className="relative z-10 px-5 pb-6 pt-6 sm:px-10 sm:pb-8 sm:pt-8">
             <div className="mb-6 flex justify-end">
