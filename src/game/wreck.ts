@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { t, type MsgKey } from "../i18n";
 import { portName } from "./data/ports";
-import { cheapestBuyPrice, replacementValue } from "./fleet";
+import { cheapestBuyPrice, fortune, replacementValue } from "./fleet";
 import type { HelmCrashCause } from "./helm";
 import type { GameState } from "./types";
 
@@ -105,18 +105,22 @@ export function sinkHelm(s: GameState, cause?: HelmCrashCause): GameState {
 export function wreckBranch(s: GameState): WreckBranch {
   const job = s.helm;
   if (!job?.wreck) return "continue";
-  if (s.cash < 0) return "broke";
   if (!job.lost) return "continue";
-  const canBuy = s.cash >= cheapestBuyPrice(s);
-  if (s.fleet.length === 0) return canBuy ? "buy" : "broke";
-  return canBuy ? "buy" : "continue";
+  const price = cheapestBuyPrice(s);
+  if (s.cash >= price) return "buy";
+  if (s.fleet.length === 0) return "broke";
+  // Cash can be red after the salvage bill while the remaining hull still
+  // keeps Formue above water. That is a buy-or-carry-on, not KONKURS.
+  if (fortune(s) < 0) return "broke";
+  return "continue";
 }
 
 export function resolveWreck(s: GameState, intent: WreckIntent = "dismiss"): GameState {
   const job = s.helm;
   if (!job) return s;
+  const branch = wreckBranch(s);
   const next: GameState = { ...s, helm: null, tab: intent === "yard" ? "yard" : s.tab };
-  if (intent === "broke" || next.cash < 0) {
+  if (branch === "broke") {
     const broke: GameState = { ...next, phase: "end", endKind: "broke" };
     log(broke, "log.broke");
     return broke;

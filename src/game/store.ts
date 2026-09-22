@@ -42,7 +42,7 @@ import { sinkHelm, resolveWreck, type WreckIntent } from "./wreck";
 import type { HelmCrashCause } from "./helm";
 import { persist, loadSave, hasSaveFlag, clearSave } from "./save";
 import { blip, chime, foghorn } from "./audio";
-import { activeShip, bunkerPlanFor, fleetHasBarge, fleetValue } from "./fleet";
+import { activeShip, bunkerPlanFor, fleetHasBarge, fleetValue, isStranded } from "./fleet";
 import { writePendingScore } from "./pending-score";
 import { useSocial } from "./social/store";
 
@@ -402,6 +402,7 @@ export const useGame = create<Store>((set, get) => ({
   fileBankruptcy: () => {
     const st = get().state;
     if (st.phase === "end" || st.phase === "title") return;
+    if (!isStranded(st)) return;
     const state = endCareer(st, "broke");
     persist(state);
     set({ state, ui: { ...get().ui, tempo: 0 } });

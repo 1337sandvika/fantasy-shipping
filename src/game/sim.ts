@@ -16,6 +16,7 @@ import {
   etsFactor,
   fleetReachNm,
   fullTankRangeNm,
+  accrueDebt,
   hullValue,
   isStranded,
   loanOffer,
@@ -1313,10 +1314,9 @@ function tickOpex(s, days) {
   );
 }
 function applyDebt(s, days) {
-  let debt = s.debt ?? 0;
-  if (debt <= 0 || days <= 0) return s;
-  const n = Math.max(1, Math.round(days));
-  for (let i = 0; i < n; i++) debt = Math.round(debt * 1.0015);
+  const prev = s.debt ?? 0;
+  const debt = accrueDebt(prev, days);
+  if (debt === prev) return s;
   return { ...s, debt };
 }
 function skimDebt(s, inflow) {

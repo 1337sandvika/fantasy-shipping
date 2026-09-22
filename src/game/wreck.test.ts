@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { cheapestBuyPrice } from "./fleet.ts";
+import { accrueDebt, cheapestBuyPrice, fortune, isStranded } from "./fleet.ts";
 import type { GameState } from "./types.ts";
 import { resolveWreck, sinkHelm, wreckBranch } from "./wreck.ts";
 import { HULLS } from "./data/ships.ts";
@@ -179,16 +179,67 @@ describe("wreckBranch / resolveWreck", () => {
     assert.equal(next.helm, null);
   });
 
-  it("still files bankruptcy when cash goes negative after the wreck bill", () => {
+  it("does not file bankruptcy when the bill goes red but a hull keeps Formue above water", () => {
     const s = gs({
       cash: -80_000,
       fleet: [ship({ id: "s2" }) as GameState["fleet"][number]],
       helm: { kind: "arrive", shipId: "s1", port: "zeebrugge", wreck: true, lost: true, salvage: 60_000, hullBill: 2e6, tcWreck: true },
     });
+    assert.ok(fortune(s) > 0);
+    assert.equal(wreckBranch(s), "continue");
+    const next = resolveWreck(s, "broke");
+    assert.equal(next.phase, "port");
+    assert.equal(next.endKind, null);
+    assert.equal(next.fleet.length, 1);
+  });
+
+  it("files bankruptcy when the wreck bill leaves Formue underwater", () => {
+    const s = gs({
+      cash: -8_000_000,
+      fleet: [ship({ id: "s2" }) as GameState["fleet"][number]],
+      helm: { kind: "arrive", shipId: "s1", port: "zeebrugge", wreck: true, lost: true, salvage: 60_000, hullBill: 2e6, tcWreck: true },
+    });
+    assert.ok(fortune(s) < 0);
     assert.equal(wreckBranch(s), "broke");
     const next = resolveWreck(s);
     assert.equal(next.phase, "end");
     assert.equal(next.endKind, "broke");
+  });
+
+  it("offers a buy after hull loss when cash covers the yard, even if another hull remains", () => {
+    const s = gs({
+      cash: 255_927_170,
+      fleet: [ship({ id: "s2", name: "Spare" }) as GameState["fleet"][number]],
+      helm: { kind: "arrive", shipId: "s1", port: "zeebrugge", wreck: true, lost: true, salvage: 60_000, shipName: "Test" },
+    });
+    assert.equal(wreckBranch(s), "buy");
+    const next = resolveWreck(s, "yard");
+    assert.equal(next.phase, "port");
+    assert.equal(next.tab, "yard");
+    assert.notEqual(next.endKind, "broke");
+  });
+
+  it("bankrupts an empty fleet when the bill itself leaves cash negative", () => {
+    const s = gs({
+      cash: -80_000,
+      fleet: [],
+      helm: { kind: "arrive", shipId: "s1", port: "zeebrugge", wreck: true, lost: true, salvage: 60_000, shipName: "Test" },
+    });
+    assert.equal(wreckBranch(s), "broke");
+    const next = resolveWreck(s);
+    assert.equal(next.phase, "end");
+    assert.equal(next.endKind, "broke");
+  });
+
+  it("does not bankrupt a salvageable hull when salvage pushed cash negative", () => {
+    const s = gs({
+      cash: -80_000,
+      helm: { kind: "arrive", shipId: "s1", port: "zeebrugge", wreck: true, lost: false, salvage: 60_000 },
+    });
+    assert.equal(wreckBranch(s), "continue");
+    const next = resolveWreck(s);
+    assert.equal(next.phase, "port");
+    assert.equal(next.endKind, null);
   });
 
   it("lets a remaining fleet carry on when a replacement is too dear", () => {
@@ -210,5 +261,74 @@ describe("wreckBranch / resolveWreck", () => {
       helm: { kind: "arrive", shipId: "s1", port: "zeebrugge", wreck: true, lost: false, salvage: 60_000 },
     });
     assert.equal(wreckBranch(s), "continue");
+  });
+});
+
+describe("isStranded matches Formue", () => {
+  it("does not bankrupt a rich line whose only hull is waiting on an LNG barge", () => {
+    const s = gs({
+      cash: 255_927_170,
+      day: 1302,
+      fleet: [
+        ship({
+          fuel: "lng",
+          bunkers: 0,
+          bunkerCap: 600,
+          port: "jacksonville",
+          barge: { from: "zeebrugge", eta: 1310, tons: 500, cost: 400_000 },
+        }) as GameState["fleet"][number],
+      ],
+    });
+    assert.ok(fortune(s) > 200_000_000);
+    assert.equal(s.fleet.length, 1);
+    assert.equal(isStranded(s), false);
+  });
+
+  it("does not bankrupt when the only hull is on hire and cash still covers a replacement", () => {
+    const s = gs({
+      cash: 255_927_170,
+      debt: 900_000_000,
+      fleet: [ship({ charter: "out", bunkers: 0, port: "jacksonville" }) as GameState["fleet"][number]],
+    });
+    assert.ok(fortune(s) > cheapestBuyPrice(s));
+    assert.equal(isStranded(s), false);
+  });
+
+  it("stays in port when a paid barge is inbound even if cash cannot buy another hull", () => {
+    const s = gs({
+      cash: 1_000,
+      debt: 80_000,
+      fleet: [
+        ship({
+          fuel: "lng",
+          bunkers: 0,
+          bunkerCap: 600,
+          port: "jacksonville",
+          barge: { from: "zeebrugge", eta: 20, tons: 500, cost: 400_000 },
+        }) as GameState["fleet"][number],
+      ],
+    });
+    assert.ok(fortune(s) < cheapestBuyPrice(s));
+    assert.equal(isStranded(s), false);
+  });
+
+  it("still strands a line that cannot fuel, sail, borrow, or buy", () => {
+    const s = gs({
+      cash: 1_000,
+      debt: 80_000,
+      fleet: [ship({ fuel: "mgo", bunkers: 0, port: "jacksonville" }) as GameState["fleet"][number]],
+    });
+    assert.ok(fortune(s) < cheapestBuyPrice(s));
+    assert.equal(isStranded(s), true);
+  });
+});
+
+describe("accrueDebt", () => {
+  it("pro-rates a fraction of a day instead of charging a full day", () => {
+    const full = accrueDebt(2_400_000, 1);
+    const tick = accrueDebt(2_400_000, 0.01);
+    assert.equal(full, Math.round(2_400_000 * 1.0015));
+    assert.ok(tick > 2_400_000);
+    assert.ok(tick < 2_400_000 + 500);
   });
 });
